@@ -46,18 +46,20 @@ func (client *Client) getNodes() {
 }
 
 func (client *Client) getGuardSharedSecret() error {
+	priva, puba := role.GetPrivateAndPublicKey()
+	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
 	conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 	nodeClient := guardNode.NewGuardNodeServiceClient(conn)
-	priva, puba := role.GetPrivateAndPublicKey()
-	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
 	response, err := nodeClient.ExchangePublicKey(context.Background(), &guardNode.PublicKey{PublicKey: pubaBytes})
 	if err != nil {
 		return err
 	}
+
 	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
 	fmt.Println(string(response.PublicKey))
 	fmt.Println(pubbParsed)

@@ -97,5 +97,5 @@ var GuardNodeService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "guardNode/guardNode.proto",
+	Metadata: "guardNode/relayNode.proto",
 }

@@ -3,7 +3,7 @@ option go_package = "cs.ubc.ca/cpsc416/onionRPC/guardNode";
 package guardNode;
 
 message PublicKey {
-  string publicKey = 1;
+  bytes publicKey = 1;
 }
 
 service GuardNodeService {

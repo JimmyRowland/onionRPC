@@ -5,13 +5,13 @@ import (
 )
 
 const (
-	GUARD_NODE_TYPE = "guard"
-	EXIT_NODE_TYPE  = "exit"
-	RELAY_NODE_TYPE = "relay"
+	GUARD_NODE_TYPE = "Guard"
+	EXIT_NODE_TYPE  = "Exit"
+	RELAY_NODE_TYPE = "Relay"
 )
 
 type NodeConfig struct {
-	NodeId                 int
+	NodeId                 string
 	CoordAddr              string
 	AckLocalIPAckLocalPort string
 	TracingServerAddr      string

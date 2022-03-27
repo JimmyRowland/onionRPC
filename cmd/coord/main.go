@@ -15,5 +15,5 @@ func main() {
 		Secret:         config.Secret,
 	})
 	coord := onionRPC.NewCoord()
-	coord.Start(config.ClientAPIListenAddr, config.ServerAPIListenAddr, config.LostMsgsThresh, config.NumServers, ctracer)
+	coord.Start(config.ClientAPIListenAddr, config.ServerAPIListenAddr, config.LostMsgsThresh, ctracer)
 }

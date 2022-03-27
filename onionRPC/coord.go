@@ -20,31 +20,6 @@ type ServerFailHandledRecvd struct {
 	AdjacentServerId uint8
 }
 
-type NewChain struct {
-	Chain []uint8
-}
-
-type AllServersJoined struct {
-}
-
-type HeadReqRecvd struct {
-	ClientId string
-}
-
-type HeadRes struct {
-	ClientId string
-	ServerId uint8
-}
-
-type TailReqRecvd struct {
-	ClientId string
-}
-
-type TailRes struct {
-	ClientId string
-	ServerId uint8
-}
-
 type ServerJoiningRecvd struct {
 	ServerId uint8
 }
@@ -57,7 +32,6 @@ type CoordConfig struct {
 	ClientAPIListenAddr string
 	ServerAPIListenAddr string
 	LostMsgsThresh      uint8
-	NumServers          uint8
 	TracingServerAddr   string
 	Secret              []byte
 	TracingIdentity     string
@@ -71,6 +45,6 @@ func NewCoord() *Coord {
 	return &Coord{}
 }
 
-func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lostMsgsThresh uint8, numServers uint8, ctrace *tracing.Tracer) error {
+func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lostMsgsThresh uint8, ctrace *tracing.Tracer) error {
 	return errors.New("not implemented")
 }

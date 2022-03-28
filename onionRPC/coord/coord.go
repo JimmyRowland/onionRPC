@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"sync"
@@ -85,7 +86,7 @@ func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lo
 	go c.handleNodeFailures(notifyCh)
 
 	// 4. Listen for client connections
-	go c.handleClientConnections()
+	go c.handleClientConnections(clientAPIListenAddr)
 
 	// 5. Wait for Stop command
 	c.stopChan = make(chan bool)
@@ -253,14 +254,84 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 	}
 }
 
-func (c *Coord) handleClientConnections() {
-	// TODO
+func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
+	listener, err := net.Listen("tcp", clientAPIListenAddr)
+	checkErr(err, "Coord failed to listen for TCP connections on ClientAPIListenAddr\n")
+
+	for {
+		conn, err := listener.Accept()
+		checkErr(err, "Failed to accept connection from onion client on TCP socket\n")
+
+		// Decode request
+		recvbuf := make([]byte, 1024)
+		_, err = conn.Read(recvbuf)
+		checkErr(err, "Failed to read OnionCircuitRequest from TCP connection\n")
+		tmpbuff := bytes.NewBuffer(recvbuf)
+		msg := new(onionRPC.OnionCircuitRequest)
+		decoder := gob.NewDecoder(tmpbuff)
+		decoder.Decode(msg)
+
+		c.mu.Lock()
+
+		if c.nActiveExits > 0 && c.nActiveGuards > 0 && c.nActiveRelays > 0 {
+			// Randomly select guard, exit, and relay nodes
+			guardIndex := rand.Intn(c.nActiveGuards)
+			exitIndex := rand.Intn(c.nActiveExits)
+			relayIndex := rand.Intn(c.nActiveRelays)
+			var guard, exit, relay onionRPC.OnionNode
+
+			for _, node := range c.guardNodes {
+				if node.IsActive && guardIndex == 0 {
+					guard = onionRPC.OnionNode{
+						RpcAddress: node.ClientListenAddr,
+					}
+					break
+				} else if node.IsActive {
+					guardIndex -= 1
+				}
+			}
+			for _, node := range c.exitNodes {
+				if node.IsActive && guardIndex == 0 {
+					exit = onionRPC.OnionNode{
+						RpcAddress: node.ClientListenAddr,
+					}
+					break
+				} else if node.IsActive {
+					exitIndex -= 1
+				}
+			}
+			for _, node := range c.relayNodes {
+				if node.IsActive && guardIndex == 0 {
+					relay = onionRPC.OnionNode{
+						RpcAddress: node.ClientListenAddr,
+					}
+					break
+				} else if node.IsActive {
+					relayIndex -= 1
+				}
+			}
+			conn.Write(encode(onionRPC.OnionCircuitResponse{
+				Error:  nil,
+				Guard:  guard,
+				Exit:   exit,
+				Relay:  relay,
+				Relays: nil,
+			}))
+		} else {
+			conn.Write(encode(onionRPC.OnionCircuitResponse{
+				Error: fmt.Errorf("Insufficient nodes in network to generate a valid onion circuit"),
+			}))
+		}
+		conn.Close()
+
+		c.mu.Unlock()
+	}
 }
 
 func (c *Coord) startMonitoringServer(raddr string, lostMsgsThresh uint8) {
 	thresh := int(lostMsgsThresh)
 	err := c.fc.BeginMonitoring(newLocalAddr(), raddr, thresh)
-	checkErr(err, "Failed to begin fcheck heartbeat for new server")
+	checkErr(err, "Failed to begin fcheck heartbeat for new server\n")
 }
 
 func newLocalAddr() string {

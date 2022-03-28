@@ -2,14 +2,18 @@ package guardNode
 
 import (
 	"context"
+	"crypto/aes"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"net"
 )
 
@@ -26,15 +30,42 @@ func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*Public
 	switch puba := pubaParsed.(type) {
 	case *ecdsa.PublicKey:
 		shared, _ := puba.Curve.ScalarMult(puba.X, puba.Y, privb.D.Bytes())
-		sharedSecretBytes := sha256.Sum256(shared.Bytes())
-		sharedSecret, _ := x509.ParseECPrivateKey(sharedSecretBytes[:])
-		node.Role.SessionKeys[string(pubbBytes)] = sharedSecret
-		fmt.Println("Shared secret: ", string(sharedSecretBytes[:]), "Session id: ", string(pubbBytes))
+		sharedSecret := sha256.Sum256(shared.Bytes())
+		node.Role.SessionKeys[hex.EncodeToString(pubbBytes)], _ = aes.NewCipher(sharedSecret[:])
 	default:
 		return &PublicKey{}, errors.New("Unknown public key type")
 	}
 	return &PublicKey{
 		PublicKey: pubbBytes,
+	}, nil
+}
+
+func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEncrypted, error) {
+	cipher, ok := node.Role.SessionKeys[in.SessionId]
+	if !ok {
+		return nil, errors.New("Unknown client")
+	}
+	var guardLayer role.ReqGuardLayer
+	err := role.Decrypt(in.Encrypted, cipher, &guardLayer)
+	if err != nil {
+		return nil, err
+	}
+
+	conn, err := grpc.Dial(guardLayer.RelayListenAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Close()
+	nodeClient := relayNode.NewRelayNodeServiceClient(conn)
+	response, err := nodeClient.ForwardRequest(context.Background(), &relayNode.ReqEncrypted{
+		Encrypted: guardLayer.Encrypted,
+		SessionId: guardLayer.RelaySessionId,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &ResEncrypted{
+		Encrypted: role.Encrypt(response, cipher),
 	}, nil
 }
 

@@ -19,7 +19,7 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ExitNodeServiceClient interface {
 	ExchangePublicKey(ctx context.Context, in *PublicKey, opts ...grpc.CallOption) (*PublicKey, error)
-	ForwardRequest(ctx context.Context, in *Encrypted, opts ...grpc.CallOption) (*Encrypted, error)
+	ForwardRequest(ctx context.Context, in *ReqEncrypted, opts ...grpc.CallOption) (*ResEncrypted, error)
 }
 
 type exitNodeServiceClient struct {
@@ -39,8 +39,8 @@ func (c *exitNodeServiceClient) ExchangePublicKey(ctx context.Context, in *Publi
 	return out, nil
 }
 
-func (c *exitNodeServiceClient) ForwardRequest(ctx context.Context, in *Encrypted, opts ...grpc.CallOption) (*Encrypted, error) {
-	out := new(Encrypted)
+func (c *exitNodeServiceClient) ForwardRequest(ctx context.Context, in *ReqEncrypted, opts ...grpc.CallOption) (*ResEncrypted, error) {
+	out := new(ResEncrypted)
 	err := c.cc.Invoke(ctx, "/exitNode.ExitNodeService/ForwardRequest", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (c *exitNodeServiceClient) ForwardRequest(ctx context.Context, in *Encrypte
 // for forward compatibility
 type ExitNodeServiceServer interface {
 	ExchangePublicKey(context.Context, *PublicKey) (*PublicKey, error)
-	ForwardRequest(context.Context, *Encrypted) (*Encrypted, error)
+	ForwardRequest(context.Context, *ReqEncrypted) (*ResEncrypted, error)
 	mustEmbedUnimplementedExitNodeServiceServer()
 }
 
@@ -64,7 +64,7 @@ type UnimplementedExitNodeServiceServer struct {
 func (UnimplementedExitNodeServiceServer) ExchangePublicKey(context.Context, *PublicKey) (*PublicKey, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExchangePublicKey not implemented")
 }
-func (UnimplementedExitNodeServiceServer) ForwardRequest(context.Context, *Encrypted) (*Encrypted, error) {
+func (UnimplementedExitNodeServiceServer) ForwardRequest(context.Context, *ReqEncrypted) (*ResEncrypted, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ForwardRequest not implemented")
 }
 func (UnimplementedExitNodeServiceServer) mustEmbedUnimplementedExitNodeServiceServer() {}
@@ -99,7 +99,7 @@ func _ExitNodeService_ExchangePublicKey_Handler(srv interface{}, ctx context.Con
 }
 
 func _ExitNodeService_ForwardRequest_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Encrypted)
+	in := new(ReqEncrypted)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func _ExitNodeService_ForwardRequest_Handler(srv interface{}, ctx context.Contex
 		FullMethod: "/exitNode.ExitNodeService/ForwardRequest",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ExitNodeServiceServer).ForwardRequest(ctx, req.(*Encrypted))
+		return srv.(ExitNodeServiceServer).ForwardRequest(ctx, req.(*ReqEncrypted))
 	}
 	return interceptor(ctx, in, info, handler)
 }

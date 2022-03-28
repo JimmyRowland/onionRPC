@@ -1,7 +1,9 @@
 package onionRPC
 
 import (
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 )
 
 const (
@@ -22,16 +24,22 @@ type Node struct {
 	NodeType    string
 	NodeConfig  NodeConfig
 	sessionKeys map[string]string
-	RelayNode   guardNode.Node
-	ExitNode    guardNode.Node
+	RelayNode   relayNode.Node
+	ExitNode    exitNode.Node
 	GuardNode   guardNode.Node
 }
 
 func (node *Node) Start() error {
 	//Get role from coordinator
-	node.NodeType = GUARD_NODE_TYPE
-	if node.NodeType == GUARD_NODE_TYPE {
+	switch node.NodeType {
+	case GUARD_NODE_TYPE:
 		go node.GuardNode.Start()
+	case EXIT_NODE_TYPE:
+		go node.ExitNode.Start()
+	case RELAY_NODE_TYPE:
+		go node.RelayNode.Start()
+	default:
+		return nil
 	}
 	return nil
 }

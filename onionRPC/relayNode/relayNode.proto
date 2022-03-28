@@ -5,11 +5,15 @@ package relayNode;
 message PublicKey {
   bytes publicKey = 1;
 }
-message Encrypted{
-  string encrypted = 1;
+message ReqEncrypted{
+  bytes encrypted = 1;
+  string sessionId = 2;
+}
+message ResEncrypted{
+  bytes encrypted = 1;
 }
 
 service RelayNodeService {
   rpc ExchangePublicKey(PublicKey) returns (PublicKey) {}
-  rpc ForwardRequest(Encrypted) returns (Encrypted) {}
+  rpc ForwardRequest(ReqEncrypted) returns (ResEncrypted) {}
 }

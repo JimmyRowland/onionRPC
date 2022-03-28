@@ -1,13 +1,12 @@
 package main
 
 import (
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/coord"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
-	"github.com/DistributedClocks/tracing"
 )
 
 func main() {
-	var config onionRPC.CoordConfig
+	var config coord.CoordConfig
 	util.ReadJSONConfig("config/coord_config.json", &config)
 	ctracer := tracing.NewTracer(tracing.TracerConfig{
 		ServerAddress:  config.TracingServerAddr,

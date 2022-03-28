@@ -2,11 +2,16 @@ package onionRPC
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"google.golang.org/grpc"
@@ -22,7 +27,7 @@ type ClientConfig struct {
 type OnionNode struct {
 	RpcAddress   string
 	sessionId    string
-	sharedSecret *ecdsa.PrivateKey
+	sharedSecret cipher.Block
 }
 
 type Client struct {
@@ -39,6 +44,17 @@ func (client *Client) Start() {
 		fmt.Println(err)
 		panic(err)
 	}
+	err = client.getRelaySharedSecret()
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+	err = client.getExitSharedSecret()
+	if err != nil {
+		fmt.Println(err)
+		panic(err)
+	}
+
 }
 
 func (client *Client) getNodes() {
@@ -46,31 +62,145 @@ func (client *Client) getNodes() {
 }
 
 func (client *Client) getGuardSharedSecret() error {
+	priva, puba := role.GetPrivateAndPublicKey()
+	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
 	conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 	nodeClient := guardNode.NewGuardNodeServiceClient(conn)
-	priva, puba := role.GetPrivateAndPublicKey()
-	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
 	response, err := nodeClient.ExchangePublicKey(context.Background(), &guardNode.PublicKey{PublicKey: pubaBytes})
 	if err != nil {
 		return err
 	}
+
 	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
 	fmt.Println(string(response.PublicKey))
 	fmt.Println(pubbParsed)
 	switch pubb := pubbParsed.(type) {
 	case *ecdsa.PublicKey:
 		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
-		sharedSecretBytes := sha256.Sum256(shared.Bytes())
-		client.Guard.sharedSecret, _ = x509.ParseECPrivateKey(sharedSecretBytes[:])
-		client.Guard.sessionId = string(response.PublicKey)
-		fmt.Println("Shared secret: ", string(sharedSecretBytes[:]), "Session id: ", client.Guard.sessionId)
+		sharedSecret := sha256.Sum256(shared.Bytes())
+		client.Guard.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
+		client.Guard.sessionId = hex.EncodeToString(response.PublicKey)
 	default:
 		fmt.Println(string(response.PublicKey))
 		return errors.New("Unknown public key type")
+	}
+	return nil
+}
+
+func (client *Client) getRelaySharedSecret() error {
+	priva, puba := role.GetPrivateAndPublicKey()
+	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
+	conn, err := grpc.Dial(client.Relay.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	nodeClient := relayNode.NewRelayNodeServiceClient(conn)
+	response, err := nodeClient.ExchangePublicKey(context.Background(), &relayNode.PublicKey{PublicKey: pubaBytes})
+	if err != nil {
+		return err
+	}
+
+	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
+	fmt.Println(string(response.PublicKey))
+	fmt.Println(pubbParsed)
+	switch pubb := pubbParsed.(type) {
+	case *ecdsa.PublicKey:
+		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
+		sharedSecret := sha256.Sum256(shared.Bytes())
+		client.Relay.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
+		client.Relay.sessionId = hex.EncodeToString(response.PublicKey)
+	default:
+		fmt.Println(string(response.PublicKey))
+		return errors.New("Unknown public key type")
+	}
+	return nil
+}
+
+func (client *Client) getExitSharedSecret() error {
+	priva, puba := role.GetPrivateAndPublicKey()
+	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
+	conn, err := grpc.Dial(client.Exit.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	nodeClient := exitNode.NewExitNodeServiceClient(conn)
+	response, err := nodeClient.ExchangePublicKey(context.Background(), &exitNode.PublicKey{PublicKey: pubaBytes})
+	if err != nil {
+		return err
+	}
+
+	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
+	fmt.Println(string(response.PublicKey))
+	fmt.Println(pubbParsed)
+	switch pubb := pubbParsed.(type) {
+	case *ecdsa.PublicKey:
+		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
+		sharedSecret := sha256.Sum256(shared.Bytes())
+		client.Exit.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
+		client.Exit.sessionId = hex.EncodeToString(response.PublicKey)
+	default:
+		fmt.Println(string(response.PublicKey))
+		return errors.New("Unknown public key type")
+	}
+	return nil
+}
+
+func (client *Client) RpcCall(serverAddr string, serviceMethod string, args interface{}, res interface{}) error {
+	exitLayer := role.ReqExitLayer{
+		Args:          args,
+		ServiceMethod: serviceMethod,
+		ServerAddr:    serverAddr,
+		Res:           res,
+	}
+
+	relayLayer := role.ReqRelayLayer{
+		ExitListenAddr: client.Exit.RpcAddress,
+		ExitSessionId:  client.Exit.sessionId,
+		Encrypted:      role.Encrypt(&exitLayer, client.Exit.sharedSecret),
+	}
+	guardLayer := role.ReqGuardLayer{
+		RelayListenAddr: client.Relay.RpcAddress,
+		RelaySessionId:  client.Relay.sessionId,
+		Encrypted:       role.Encrypt(&relayLayer, client.Relay.sharedSecret),
+	}
+	plainTextLayer := guardNode.ReqEncrypted{
+		SessionId: client.Guard.sessionId,
+		Encrypted: role.Encrypt(&guardLayer, client.Guard.sharedSecret),
+	}
+
+	conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	nodeClient := guardNode.NewGuardNodeServiceClient(conn)
+	response, err := nodeClient.ForwardRequest(context.Background(), &plainTextLayer)
+	if err != nil {
+		return err
+	}
+	resGuardLayer := guardNode.ResEncrypted{}
+	err = role.Decrypt(response.Encrypted, client.Guard.sharedSecret, &resGuardLayer)
+	if err != nil {
+		return err
+	}
+	resRelayLayer := relayNode.ResEncrypted{}
+	err = role.Decrypt(resGuardLayer.Encrypted, client.Relay.sharedSecret, &resRelayLayer)
+	if err != nil {
+		return err
+	}
+	err = role.Decrypt(resRelayLayer.Encrypted, client.Exit.sharedSecret, res)
+	fmt.Println(err, err == nil, err != nil)
+	if err != nil {
+		return err
 	}
 	return nil
 }

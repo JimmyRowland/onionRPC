@@ -2,9 +2,9 @@
 // versions:
 // 	protoc-gen-go v1.26.0
 // 	protoc        v3.6.1
-// source: guardNode/guardNode.proto
+// source: relayNode/relayNode.proto
 
-package guardNode
+package relayNode
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -31,7 +31,7 @@ type PublicKey struct {
 func (x *PublicKey) Reset() {
 	*x = PublicKey{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_guardNode_guardNode_proto_msgTypes[0]
+		mi := &file_relayNode_relayNode_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +44,7 @@ func (x *PublicKey) String() string {
 func (*PublicKey) ProtoMessage() {}
 
 func (x *PublicKey) ProtoReflect() protoreflect.Message {
-	mi := &file_guardNode_guardNode_proto_msgTypes[0]
+	mi := &file_relayNode_relayNode_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *PublicKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PublicKey.ProtoReflect.Descriptor instead.
 func (*PublicKey) Descriptor() ([]byte, []int) {
-	return file_guardNode_guardNode_proto_rawDescGZIP(), []int{0}
+	return file_relayNode_relayNode_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *PublicKey) GetPublicKey() []byte {
@@ -79,7 +79,7 @@ type ReqEncrypted struct {
 func (x *ReqEncrypted) Reset() {
 	*x = ReqEncrypted{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_guardNode_guardNode_proto_msgTypes[1]
+		mi := &file_relayNode_relayNode_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -92,7 +92,7 @@ func (x *ReqEncrypted) String() string {
 func (*ReqEncrypted) ProtoMessage() {}
 
 func (x *ReqEncrypted) ProtoReflect() protoreflect.Message {
-	mi := &file_guardNode_guardNode_proto_msgTypes[1]
+	mi := &file_relayNode_relayNode_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -105,7 +105,7 @@ func (x *ReqEncrypted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReqEncrypted.ProtoReflect.Descriptor instead.
 func (*ReqEncrypted) Descriptor() ([]byte, []int) {
-	return file_guardNode_guardNode_proto_rawDescGZIP(), []int{1}
+	return file_relayNode_relayNode_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *ReqEncrypted) GetEncrypted() []byte {
@@ -133,7 +133,7 @@ type ResEncrypted struct {
 func (x *ResEncrypted) Reset() {
 	*x = ResEncrypted{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_guardNode_guardNode_proto_msgTypes[2]
+		mi := &file_relayNode_relayNode_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -146,7 +146,7 @@ func (x *ResEncrypted) String() string {
 func (*ResEncrypted) ProtoMessage() {}
 
 func (x *ResEncrypted) ProtoReflect() protoreflect.Message {
-	mi := &file_guardNode_guardNode_proto_msgTypes[2]
+	mi := &file_relayNode_relayNode_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -159,7 +159,7 @@ func (x *ResEncrypted) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResEncrypted.ProtoReflect.Descriptor instead.
 func (*ResEncrypted) Descriptor() ([]byte, []int) {
-	return file_guardNode_guardNode_proto_rawDescGZIP(), []int{2}
+	return file_relayNode_relayNode_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ResEncrypted) GetEncrypted() []byte {
@@ -169,12 +169,12 @@ func (x *ResEncrypted) GetEncrypted() []byte {
 	return nil
 }
 
-var File_guardNode_guardNode_proto protoreflect.FileDescriptor
+var File_relayNode_relayNode_proto protoreflect.FileDescriptor
 
-var file_guardNode_guardNode_proto_rawDesc = []byte{
-	0x0a, 0x19, 0x67, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64, 0x65, 0x2f, 0x67, 0x75, 0x61, 0x72,
-	0x64, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x09, 0x67, 0x75, 0x61,
-	0x72, 0x64, 0x4e, 0x6f, 0x64, 0x65, 0x22, 0x29, 0x0a, 0x09, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63,
+var file_relayNode_relayNode_proto_rawDesc = []byte{
+	0x0a, 0x19, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64, 0x65, 0x2f, 0x72, 0x65, 0x6c, 0x61,
+	0x79, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x12, 0x09, 0x72, 0x65, 0x6c,
+	0x61, 0x79, 0x4e, 0x6f, 0x64, 0x65, 0x22, 0x29, 0x0a, 0x09, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63,
 	0x4b, 0x65, 0x79, 0x12, 0x1c, 0x0a, 0x09, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65, 0x79,
 	0x18, 0x01, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x09, 0x70, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65,
 	0x79, 0x22, 0x4a, 0x0a, 0x0c, 0x52, 0x65, 0x71, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x65,
@@ -185,44 +185,44 @@ var file_guardNode_guardNode_proto_rawDesc = []byte{
 	0x0c, 0x52, 0x65, 0x73, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x12, 0x1c, 0x0a,
 	0x09, 0x65, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0c,
 	0x52, 0x09, 0x65, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x32, 0x9b, 0x01, 0x0a, 0x10,
-	0x47, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
+	0x52, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64, 0x65, 0x53, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65,
 	0x12, 0x41, 0x0a, 0x11, 0x45, 0x78, 0x63, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x50, 0x75, 0x62, 0x6c,
-	0x69, 0x63, 0x4b, 0x65, 0x79, 0x12, 0x14, 0x2e, 0x67, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64,
-	0x65, 0x2e, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65, 0x79, 0x1a, 0x14, 0x2e, 0x67, 0x75,
-	0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65,
+	0x69, 0x63, 0x4b, 0x65, 0x79, 0x12, 0x14, 0x2e, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64,
+	0x65, 0x2e, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65, 0x79, 0x1a, 0x14, 0x2e, 0x72, 0x65,
+	0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x63, 0x4b, 0x65,
 	0x79, 0x22, 0x00, 0x12, 0x44, 0x0a, 0x0e, 0x46, 0x6f, 0x72, 0x77, 0x61, 0x72, 0x64, 0x52, 0x65,
-	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x2e, 0x67, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x17, 0x2e, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64,
 	0x65, 0x2e, 0x52, 0x65, 0x71, 0x45, 0x6e, 0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x1a, 0x17,
-	0x2e, 0x67, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x52, 0x65, 0x73, 0x45, 0x6e,
+	0x2e, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64, 0x65, 0x2e, 0x52, 0x65, 0x73, 0x45, 0x6e,
 	0x63, 0x72, 0x79, 0x70, 0x74, 0x65, 0x64, 0x22, 0x00, 0x42, 0x26, 0x5a, 0x24, 0x63, 0x73, 0x2e,
 	0x75, 0x62, 0x63, 0x2e, 0x63, 0x61, 0x2f, 0x63, 0x70, 0x73, 0x63, 0x34, 0x31, 0x36, 0x2f, 0x6f,
-	0x6e, 0x69, 0x6f, 0x6e, 0x52, 0x50, 0x43, 0x2f, 0x67, 0x75, 0x61, 0x72, 0x64, 0x4e, 0x6f, 0x64,
+	0x6e, 0x69, 0x6f, 0x6e, 0x52, 0x50, 0x43, 0x2f, 0x72, 0x65, 0x6c, 0x61, 0x79, 0x4e, 0x6f, 0x64,
 	0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
-	file_guardNode_guardNode_proto_rawDescOnce sync.Once
-	file_guardNode_guardNode_proto_rawDescData = file_guardNode_guardNode_proto_rawDesc
+	file_relayNode_relayNode_proto_rawDescOnce sync.Once
+	file_relayNode_relayNode_proto_rawDescData = file_relayNode_relayNode_proto_rawDesc
 )
 
-func file_guardNode_guardNode_proto_rawDescGZIP() []byte {
-	file_guardNode_guardNode_proto_rawDescOnce.Do(func() {
-		file_guardNode_guardNode_proto_rawDescData = protoimpl.X.CompressGZIP(file_guardNode_guardNode_proto_rawDescData)
+func file_relayNode_relayNode_proto_rawDescGZIP() []byte {
+	file_relayNode_relayNode_proto_rawDescOnce.Do(func() {
+		file_relayNode_relayNode_proto_rawDescData = protoimpl.X.CompressGZIP(file_relayNode_relayNode_proto_rawDescData)
 	})
-	return file_guardNode_guardNode_proto_rawDescData
+	return file_relayNode_relayNode_proto_rawDescData
 }
 
-var file_guardNode_guardNode_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
-var file_guardNode_guardNode_proto_goTypes = []interface{}{
-	(*PublicKey)(nil),    // 0: guardNode.PublicKey
-	(*ReqEncrypted)(nil), // 1: guardNode.ReqEncrypted
-	(*ResEncrypted)(nil), // 2: guardNode.ResEncrypted
+var file_relayNode_relayNode_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_relayNode_relayNode_proto_goTypes = []interface{}{
+	(*PublicKey)(nil),    // 0: relayNode.PublicKey
+	(*ReqEncrypted)(nil), // 1: relayNode.ReqEncrypted
+	(*ResEncrypted)(nil), // 2: relayNode.ResEncrypted
 }
-var file_guardNode_guardNode_proto_depIdxs = []int32{
-	0, // 0: guardNode.GuardNodeService.ExchangePublicKey:input_type -> guardNode.PublicKey
-	1, // 1: guardNode.GuardNodeService.ForwardRequest:input_type -> guardNode.ReqEncrypted
-	0, // 2: guardNode.GuardNodeService.ExchangePublicKey:output_type -> guardNode.PublicKey
-	2, // 3: guardNode.GuardNodeService.ForwardRequest:output_type -> guardNode.ResEncrypted
+var file_relayNode_relayNode_proto_depIdxs = []int32{
+	0, // 0: relayNode.RelayNodeService.ExchangePublicKey:input_type -> relayNode.PublicKey
+	1, // 1: relayNode.RelayNodeService.ForwardRequest:input_type -> relayNode.ReqEncrypted
+	0, // 2: relayNode.RelayNodeService.ExchangePublicKey:output_type -> relayNode.PublicKey
+	2, // 3: relayNode.RelayNodeService.ForwardRequest:output_type -> relayNode.ResEncrypted
 	2, // [2:4] is the sub-list for method output_type
 	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -230,13 +230,13 @@ var file_guardNode_guardNode_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_guardNode_guardNode_proto_init() }
-func file_guardNode_guardNode_proto_init() {
-	if File_guardNode_guardNode_proto != nil {
+func init() { file_relayNode_relayNode_proto_init() }
+func file_relayNode_relayNode_proto_init() {
+	if File_relayNode_relayNode_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_guardNode_guardNode_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_relayNode_relayNode_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*PublicKey); i {
 			case 0:
 				return &v.state
@@ -248,7 +248,7 @@ func file_guardNode_guardNode_proto_init() {
 				return nil
 			}
 		}
-		file_guardNode_guardNode_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
+		file_relayNode_relayNode_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ReqEncrypted); i {
 			case 0:
 				return &v.state
@@ -260,7 +260,7 @@ func file_guardNode_guardNode_proto_init() {
 				return nil
 			}
 		}
-		file_guardNode_guardNode_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
+		file_relayNode_relayNode_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ResEncrypted); i {
 			case 0:
 				return &v.state
@@ -277,18 +277,18 @@ func file_guardNode_guardNode_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_guardNode_guardNode_proto_rawDesc,
+			RawDescriptor: file_relayNode_relayNode_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_guardNode_guardNode_proto_goTypes,
-		DependencyIndexes: file_guardNode_guardNode_proto_depIdxs,
-		MessageInfos:      file_guardNode_guardNode_proto_msgTypes,
+		GoTypes:           file_relayNode_relayNode_proto_goTypes,
+		DependencyIndexes: file_relayNode_relayNode_proto_depIdxs,
+		MessageInfos:      file_relayNode_relayNode_proto_msgTypes,
 	}.Build()
-	File_guardNode_guardNode_proto = out.File
-	file_guardNode_guardNode_proto_rawDesc = nil
-	file_guardNode_guardNode_proto_goTypes = nil
-	file_guardNode_guardNode_proto_depIdxs = nil
+	File_relayNode_relayNode_proto = out.File
+	file_relayNode_relayNode_proto_rawDesc = nil
+	file_relayNode_relayNode_proto_goTypes = nil
+	file_relayNode_relayNode_proto_depIdxs = nil
 }

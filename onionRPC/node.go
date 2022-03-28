@@ -10,6 +10,9 @@ import (
 	fchecker "cs.ubc.ca/cpsc416/onionRPC/fcheck"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
 	"github.com/google/uuid"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 )
 
 const (
@@ -36,8 +39,8 @@ type Node struct {
 	NodeType    string
 	NodeConfig  NodeConfig
 	sessionKeys map[string]string
-	RelayNode   guardNode.Node
-	ExitNode    guardNode.Node
+	RelayNode   relayNode.Node
+	ExitNode    exitNode.Node
 	GuardNode   guardNode.Node
 }
 
@@ -66,10 +69,15 @@ func (n *Node) Start(config NodeConfig) error {
 	n.connectToCoord()
 
 	// 3. Adopt role and begin responding to requests
-	n.NodeType = GUARD_NODE_TYPE
-	if n.NodeType == GUARD_NODE_TYPE {
-		go n.GuardNode.Start()
-	}
+	switch node.NodeType {
+	case GUARD_NODE_TYPE:
+		go node.GuardNode.Start()
+	case EXIT_NODE_TYPE:
+		go node.ExitNode.Start()
+	case RELAY_NODE_TYPE:
+		go node.RelayNode.Start()
+	default:
+		return nil
 
 	return nil
 }

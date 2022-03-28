@@ -1,4 +1,4 @@
-package guardNode
+package relayNode
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"encoding/hex"
@@ -20,7 +20,7 @@ import (
 type Node struct {
 	RoleConfig role.RoleConfig
 	Role       role.Role
-	UnimplementedGuardNodeServiceServer
+	UnimplementedRelayNodeServiceServer
 }
 
 func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*PublicKey, error) {
@@ -45,21 +45,21 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	if !ok {
 		return nil, errors.New("Unknown client")
 	}
-	var guardLayer role.ReqGuardLayer
-	err := role.Decrypt(in.Encrypted, cipher, &guardLayer)
+	var relayLayer role.ReqRelayLayer
+	err := role.Decrypt(in.Encrypted, cipher, &relayLayer)
 	if err != nil {
 		return nil, err
 	}
 
-	conn, err := grpc.Dial(guardLayer.RelayListenAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(relayLayer.ExitListenAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
-	nodeClient := relayNode.NewRelayNodeServiceClient(conn)
-	response, err := nodeClient.ForwardRequest(context.Background(), &relayNode.ReqEncrypted{
-		Encrypted: guardLayer.Encrypted,
-		SessionId: guardLayer.RelaySessionId,
+	nodeClient := exitNode.NewExitNodeServiceClient(conn)
+	response, err := nodeClient.ForwardRequest(context.Background(), &exitNode.ReqEncrypted{
+		Encrypted: relayLayer.Encrypted,
+		SessionId: relayLayer.ExitSessionId,
 	})
 	if err != nil {
 		return nil, err
@@ -84,8 +84,8 @@ func (node *Node) Start() {
 
 	grpcServer := grpc.NewServer()
 
-	RegisterGuardNodeServiceServer(grpcServer, node)
-	fmt.Println("Guard node started", node.RoleConfig.ListenAddr)
+	RegisterRelayNodeServiceServer(grpcServer, node)
+	fmt.Println("Relay node started", node.RoleConfig.ListenAddr)
 	err = grpcServer.Serve(lis)
 	util.CheckErr(err, node.RoleConfig.ListenAddr)
 }

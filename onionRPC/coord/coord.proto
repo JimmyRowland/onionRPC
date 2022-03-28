@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = "cs.ubc.ca/cpsc416/onionRPC/coord";
+package coordNode;
+
+message Chain {
+  string GuardAddr = 1;
+  string RelayAddr = 2;
+  string ExitAddr = 3;
+}
+message NodeJoinRequest {
+  string ListenAddr = 1;
+}
+message NodeJoinResponse {
+  string Role = 1;
+}
+
+service CoordService {
+  rpc NodeJoin(NodeJoinRequest) returns (NodeJoinResponse) {}
+  rpc RequestChain(Chain) returns (Chain) {}
+}

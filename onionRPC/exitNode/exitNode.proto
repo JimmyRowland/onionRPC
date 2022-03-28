@@ -1,6 +1,6 @@
 syntax = "proto3";
-option go_package = "cs.ubc.ca/cpsc416/onionRPC/guardNode";
-package guardNode;
+option go_package = "cs.ubc.ca/cpsc416/onionRPC/exitNode";
+package exitNode;
 
 message PublicKey {
   bytes publicKey = 1;
@@ -12,8 +12,7 @@ message ReqEncrypted{
 message ResEncrypted{
   bytes encrypted = 1;
 }
-
-service GuardNodeService {
+service ExitNodeService {
   rpc ExchangePublicKey(PublicKey) returns (PublicKey) {}
   rpc ForwardRequest(ReqEncrypted) returns (ResEncrypted) {}
 }

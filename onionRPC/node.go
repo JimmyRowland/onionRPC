@@ -3,16 +3,17 @@ package onionRPC
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
 	fchecker "cs.ubc.ca/cpsc416/onionRPC/fcheck"
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
-	"github.com/google/uuid"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
+	"github.com/google/uuid"
 )
 
 const (
@@ -20,6 +21,19 @@ const (
 	EXIT_NODE_TYPE  = "Exit"
 	RELAY_NODE_TYPE = "Relay"
 )
+
+type OnionNodeJoinRequest struct {
+	Timestamp        time.Time
+	FcheckAddr       string // Address the server will use to listen for fcheck connection
+	ClientListenAddr string // Address the server will use to listen for client->server connections
+	ServerListenAddr string // Address the server will use to listen for server->server connections
+	NodeId           uuid.UUID
+}
+
+type OnionNodeJoinResponse struct {
+	Timestamp time.Time
+	Role      string
+}
 
 type NodeConfig struct {
 	NodeId            string
@@ -69,15 +83,16 @@ func (n *Node) Start(config NodeConfig) error {
 	n.connectToCoord()
 
 	// 3. Adopt role and begin responding to requests
-	switch node.NodeType {
+	switch n.NodeType {
 	case GUARD_NODE_TYPE:
-		go node.GuardNode.Start()
+		go n.GuardNode.Start()
 	case EXIT_NODE_TYPE:
-		go node.ExitNode.Start()
+		go n.ExitNode.Start()
 	case RELAY_NODE_TYPE:
-		go node.RelayNode.Start()
+		go n.RelayNode.Start()
 	default:
 		return nil
+	}
 
 	return nil
 }
@@ -89,7 +104,7 @@ func (n *Node) connectToCoord() {
 	defer conn.Close()
 
 	// Send join request
-	msg := NodeJoinRequest{
+	msg := OnionNodeJoinRequest{
 		time.Now(),
 		n.NodeConfig.FcheckAddr,
 		n.NodeConfig.ClientListenAddr,
@@ -106,10 +121,44 @@ func (n *Node) connectToCoord() {
 
 	// Decode response
 	tmpbuff := bytes.NewBuffer(recvbuf)
-	res := new(NodeJoinResponse)
+	res := new(OnionNodeJoinResponse)
 	decoder := gob.NewDecoder(tmpbuff)
 	decoder.Decode(res)
 
 	// Adopt assigned role
 	n.NodeType = res.Role
+}
+
+func newLocalAddr() string {
+	port, err := getFreePort()
+	checkErr(err, "Failed to find a free local port")
+	return "0.0.0.0:" + port
+}
+
+func getFreePort() (string, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:0")
+	if err != nil {
+		return "", err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return "", err
+	}
+	defer l.Close()
+	return fmt.Sprint(l.Addr().(*net.TCPAddr).Port), nil
+}
+
+func checkErr(err error, errfmsg string, fargs ...interface{}) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, errfmsg, fargs...)
+		os.Exit(1)
+	}
+}
+
+// Encodes arbitrary data using gob
+func encode(message interface{}) []byte {
+	var buf bytes.Buffer
+	gob.NewEncoder(&buf).Encode(message)
+	return buf.Bytes()
 }

@@ -10,11 +10,9 @@ import (
 	"time"
 
 	fchecker "cs.ubc.ca/cpsc416/onionRPC/fcheck"
-	"cs.ubc.ca/cpsc416/onionRPC/util"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC"
 	"github.com/DistributedClocks/tracing"
 	"github.com/google/uuid"
-	"google.golang.org/grpc"
-	"net"
 )
 
 // Actions to be recorded by coord (as part of ctrace, ktrace, and strace):
@@ -111,19 +109,6 @@ func (c *Coord) awaitStop(stopChan <-chan bool) {
 	}
 }
 
-type NodeJoinRequest struct {
-	Timestamp        time.Time
-	FcheckAddr       string // Address the server will use to listen for fcheck connection
-	ClientListenAddr string // Address the server will use to listen for client->server connections
-	ServerListenAddr string // Address the server will use to listen for server->server connections
-	NodeId           uuid.UUID
-}
-
-type NodeJoinResponse struct {
-	Timestamp time.Time
-	Role      string
-}
-
 type NodeConnection struct {
 	NodeId           uuid.UUID
 	Type             string
@@ -145,7 +130,7 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		_, err = conn.Read(recvbuf)
 		checkErr(err, "Failed to read NodeJoinMessage from TCP connection\n")
 		tmpbuff := bytes.NewBuffer(recvbuf)
-		msg := new(NodeJoinRequest)
+		msg := new(onionRPC.OnionNodeJoinRequest)
 		decoder := gob.NewDecoder(tmpbuff)
 		decoder.Decode(msg)
 
@@ -166,10 +151,10 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		}
 		didReplace := false
 		var nodeArr *[]NodeConnection
-		if nodeType == GUARD_NODE_TYPE {
+		if nodeType == onionRPC.GUARD_NODE_TYPE {
 			nodeArr = &c.guardNodes
 			c.nActiveGuards += 1
-		} else if nodeType == EXIT_NODE_TYPE {
+		} else if nodeType == onionRPC.EXIT_NODE_TYPE {
 			nodeArr = &c.exitNodes
 			c.nActiveExits += 1
 		} else {
@@ -194,7 +179,7 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		c.mu.Unlock()
 
 		// Send acknowledgement to node
-		res := NodeJoinResponse{time.Now(), nodeType}
+		res := onionRPC.OnionNodeJoinResponse{time.Now(), nodeType}
 		conn.Write(encode(res))
 		conn.Close()
 	}
@@ -205,30 +190,30 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 func (c *Coord) chooseNodeType() string {
 	// 1. Prioritoze getting 1 of each type
 	if c.nActiveGuards == 0 {
-		return GUARD_NODE_TYPE
+		return onionRPC.GUARD_NODE_TYPE
 	} else if c.nActiveExits == 0 {
-		return EXIT_NODE_TYPE
+		return onionRPC.EXIT_NODE_TYPE
 	} else if c.nActiveRelays == 0 {
-		return RELAY_NODE_TYPE
+		return onionRPC.RELAY_NODE_TYPE
 	}
 
 	// 2. Prioritize getting at least 2 guards and exits
 	if c.nActiveGuards < 2 {
-		return GUARD_NODE_TYPE
+		return onionRPC.GUARD_NODE_TYPE
 	} else if c.nActiveExits < 2 {
-		return EXIT_NODE_TYPE
+		return onionRPC.EXIT_NODE_TYPE
 	}
 
 	DESIRED_RATIO := 3 // Ratio of relay nodes to guard/exit nodes
 
 	// 3. Finally, attempt to achieve the desired ratio of relays to guards/exits
 	if c.nActiveRelays/c.nActiveGuards > DESIRED_RATIO {
-		return GUARD_NODE_TYPE
+		return onionRPC.GUARD_NODE_TYPE
 	} else if c.nActiveRelays/c.nActiveExits > DESIRED_RATIO {
-		return EXIT_NODE_TYPE
+		return onionRPC.EXIT_NODE_TYPE
 	}
 
-	return RELAY_NODE_TYPE
+	return onionRPC.RELAY_NODE_TYPE
 }
 
 func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {

@@ -1,19 +1,24 @@
 package onionRPC
 
 import (
+	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/gob"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"net"
+	"time"
+
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
-	"encoding/hex"
-	"errors"
-	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -22,6 +27,7 @@ type ClientConfig struct {
 	ClientID          string
 	TracingServerAddr string
 	TracingIdentity   string
+	CoordAddr         string
 }
 
 type OnionNode struct {
@@ -37,7 +43,8 @@ type Client struct {
 	Relay        OnionNode
 }
 
-func (client *Client) Start() {
+func (client *Client) Start(config ClientConfig) {
+	client.ClientConfig = config
 	client.getNodes()
 	err := client.getGuardSharedSecret()
 	if err != nil {
@@ -57,8 +64,46 @@ func (client *Client) Start() {
 
 }
 
+type OnionCircuitRequest struct {
+	Timestamp time.Time
+}
+
+type OnionCircuitResponse struct {
+	Error  error
+	Guard  OnionNode
+	Exit   OnionNode
+	Relay  OnionNode
+	Relays []OnionNode // TODO: implement multi-relay circuits
+}
+
 func (client *Client) getNodes() {
-	//TODO: https://www.figma.com/file/kP9OXD9I8nZgCYLmx5RpY4/Untitled?node-id=34%3A44
+	// TODO: https://www.figma.com/file/kP9OXD9I8nZgCYLmx5RpY4/Untitled?node-id=34%3A44
+	coordAddr := client.ClientConfig.CoordAddr
+	conn, err := net.Dial("tcp", coordAddr)
+	checkErr(err, "Client failed to connect to coord")
+
+	// Send request for a new circuit
+	req := OnionCircuitRequest{time.Now()}
+	conn.Write(encode(req))
+
+	// Receive and decode response
+	recvbuf := make([]byte, 1024)
+	_, err = conn.Read(recvbuf)
+	checkErr(err, "Failed to read NodeJoinMessage from TCP connection\n")
+	tmpbuff := bytes.NewBuffer(recvbuf)
+	msg := new(OnionCircuitResponse)
+	decoder := gob.NewDecoder(tmpbuff)
+	decoder.Decode(msg)
+
+	if msg.Error != nil {
+		// TODO: handle case where coord does not have enough connected nodes to form circuit
+		panic(msg.Error)
+	}
+
+	client.Exit = msg.Exit
+	client.Guard = msg.Guard
+	client.Relay = msg.Relay
+	// TODO: implement multi-relay circuits using `msg.Relays`
 }
 
 func (client *Client) getGuardSharedSecret() error {

@@ -67,6 +67,10 @@ func NewNode() *Node {
 func (n *Node) Start(config NodeConfig) error {
 	n.mu.Lock()
 	n.NodeConfig = config
+	//Will only support single role
+	n.GuardNode.RoleConfig.ListenAddr = config.ClientListenAddr
+	n.RelayNode.RoleConfig.ListenAddr = config.ClientListenAddr
+	n.ExitNode.RoleConfig.ListenAddr = config.ClientListenAddr
 
 	// 1. Start fcheck
 	fc := fchecker.NewFcheck()

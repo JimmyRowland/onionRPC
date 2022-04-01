@@ -71,7 +71,7 @@ func (n *Node) Start(config NodeConfig) error {
 	// 1. Start fcheck
 	fc := fchecker.NewFcheck()
 	n.fc = &fc
-	n.fcAddr = newLocalAddr()
+	n.fcAddr = n.NodeConfig.FcheckAddr
 	fcConfig := fchecker.StartStruct{
 		AckLocalIPAckLocalPort: n.fcAddr,
 	}
@@ -81,6 +81,8 @@ func (n *Node) Start(config NodeConfig) error {
 
 	// 2. Establish coordinator connection and get role
 	n.connectToCoord()
+
+	fmt.Printf("Onion node connected to coord and was assigned type: %s\n", n.NodeType)
 
 	// 3. Adopt role and begin responding to requests
 	switch n.NodeType {

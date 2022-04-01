@@ -127,6 +127,7 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		conn, err := listener.Accept()
 		checkErr(err, "Failed to accept connection from onion node on TCP socket\n")
 
+		fmt.Println("Received connection from node.")
 		recvbuf := make([]byte, 1024)
 		_, err = conn.Read(recvbuf)
 		checkErr(err, "Failed to read NodeJoinMessage from TCP connection\n")
@@ -182,6 +183,11 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		// Send acknowledgement to node
 		res := onionRPC.OnionNodeJoinResponse{time.Now(), nodeType}
 		conn.Write(encode(res))
+		if !didReplace {
+			fmt.Println("Established connection with a new onion node")
+		} else {
+			fmt.Println("Re-established connection with a failed onion node")
+		}
 		conn.Close()
 	}
 
@@ -223,6 +229,7 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 	c.mu.Unlock()
 	for isCoordActive {
 		fail := <-notifyCh
+		fmt.Println("Onion coordinator detected node failure")
 		c.mu.Lock()
 
 		failedServerAddr := fail.UDPIpPort
@@ -249,6 +256,8 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		}
 
 		node.IsActive = false
+
+		fmt.Println("Node failure was processed by the coordinator")
 
 		c.mu.Unlock()
 	}

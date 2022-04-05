@@ -45,7 +45,7 @@ type Client struct {
 
 func (client *Client) Start(config ClientConfig) {
 	client.ClientConfig = config
-	client.getNodes()
+	client.getNodes([]OnionNode{})
 	err := client.getGuardSharedSecret()
 	if err != nil {
 		fmt.Println(err)
@@ -65,7 +65,8 @@ func (client *Client) Start(config ClientConfig) {
 }
 
 type OnionCircuitRequest struct {
-	Timestamp time.Time
+	OnionNodes []OnionNode
+	Timestamp  time.Time
 }
 
 type OnionCircuitResponse struct {
@@ -76,14 +77,14 @@ type OnionCircuitResponse struct {
 	Relays []OnionNode // TODO: implement multi-relay circuits
 }
 
-func (client *Client) getNodes() {
+func (client *Client) getNodes(prevNodes []OnionNode) {
 	// TODO: https://www.figma.com/file/kP9OXD9I8nZgCYLmx5RpY4/Untitled?node-id=34%3A44
 	coordAddr := client.ClientConfig.CoordAddr
 	conn, err := net.Dial("tcp", coordAddr)
 	checkErr(err, "Client failed to connect to coord")
 
 	// Send request for a new circuit
-	req := OnionCircuitRequest{time.Now()}
+	req := OnionCircuitRequest{Timestamp: time.Now(), OnionNodes: prevNodes}
 	conn.Write(encode(req))
 
 	// Receive and decode response
@@ -200,52 +201,88 @@ func (client *Client) getExitSharedSecret() error {
 }
 
 func (client *Client) RpcCall(serverAddr string, serviceMethod string, args interface{}, res interface{}) error {
-	exitLayer := role.ReqExitLayer{
-		Args:          args,
-		ServiceMethod: serviceMethod,
-		ServerAddr:    serverAddr,
-		Res:           res,
-	}
+	timeouts := 0
+	timeout := 1000
+	done := make(chan bool)
 
-	relayLayer := role.ReqRelayLayer{
-		ExitListenAddr: client.Exit.RpcAddress,
-		ExitSessionId:  client.Exit.sessionId,
-		Encrypted:      role.Encrypt(&exitLayer, client.Exit.sharedSecret),
-	}
-	guardLayer := role.ReqGuardLayer{
-		RelayListenAddr: client.Relay.RpcAddress,
-		RelaySessionId:  client.Relay.sessionId,
-		Encrypted:       role.Encrypt(&relayLayer, client.Relay.sharedSecret),
-	}
-	plainTextLayer := guardNode.ReqEncrypted{
-		SessionId: client.Guard.sessionId,
-		Encrypted: role.Encrypt(&guardLayer, client.Guard.sharedSecret),
-	}
+	for {
+		exitLayer := role.ReqExitLayer{
+			Args:          args,
+			ServiceMethod: serviceMethod,
+			ServerAddr:    serverAddr,
+			Res:           res,
+		}
 
-	conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
+		relayLayer := role.ReqRelayLayer{
+			ExitListenAddr: client.Exit.RpcAddress,
+			ExitSessionId:  client.Exit.sessionId,
+			Encrypted:      role.Encrypt(&exitLayer, client.Exit.sharedSecret),
+		}
+		guardLayer := role.ReqGuardLayer{
+			RelayListenAddr: client.Relay.RpcAddress,
+			RelaySessionId:  client.Relay.sessionId,
+			Encrypted:       role.Encrypt(&relayLayer, client.Relay.sharedSecret),
+		}
+		plainTextLayer := guardNode.ReqEncrypted{
+			SessionId: client.Guard.sessionId,
+			Encrypted: role.Encrypt(&guardLayer, client.Guard.sharedSecret),
+		}
+		conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			return err
+		}
+		defer conn.Close()
+		go func() error {
+			nodeClient := guardNode.NewGuardNodeServiceClient(conn)
+			response, err := nodeClient.ForwardRequest(context.Background(), &plainTextLayer)
+			if err != nil {
+				return err
+			}
+			resGuardLayer := guardNode.ResEncrypted{}
+			err = role.Decrypt(response.Encrypted, client.Guard.sharedSecret, &resGuardLayer)
+			if err != nil {
+				return err
+			}
+			resRelayLayer := relayNode.ResEncrypted{}
+			err = role.Decrypt(resGuardLayer.Encrypted, client.Relay.sharedSecret, &resRelayLayer)
+			if err != nil {
+				return err
+			}
+			err = role.Decrypt(resRelayLayer.Encrypted, client.Exit.sharedSecret, res)
+			fmt.Println(err, err == nil, err != nil)
+			if err != nil {
+				return err
+			}
+			done <- true
+			return nil
+		}()
+		select {
+		case isDone := <-done:
+			if isDone == true {
+				return nil
+			}
+		case <-time.After(time.Duration(timeout) * time.Millisecond):
+			timeouts++
+			if timeouts >= 3 {
+				client.getNodes([]OnionNode{client.Exit, client.Guard, client.Relay})
+				err := client.getGuardSharedSecret()
+				if err != nil {
+					fmt.Println(err)
+					panic(err)
+				}
+				err = client.getRelaySharedSecret()
+				if err != nil {
+					fmt.Println(err)
+					panic(err)
+				}
+				err = client.getExitSharedSecret()
+				if err != nil {
+					fmt.Println(err)
+					panic(err)
+				}
+			}
+			continue
+		}
+		return nil
 	}
-	defer conn.Close()
-	nodeClient := guardNode.NewGuardNodeServiceClient(conn)
-	response, err := nodeClient.ForwardRequest(context.Background(), &plainTextLayer)
-	if err != nil {
-		return err
-	}
-	resGuardLayer := guardNode.ResEncrypted{}
-	err = role.Decrypt(response.Encrypted, client.Guard.sharedSecret, &resGuardLayer)
-	if err != nil {
-		return err
-	}
-	resRelayLayer := relayNode.ResEncrypted{}
-	err = role.Decrypt(resGuardLayer.Encrypted, client.Relay.sharedSecret, &resRelayLayer)
-	if err != nil {
-		return err
-	}
-	err = role.Decrypt(resRelayLayer.Encrypted, client.Exit.sharedSecret, res)
-	fmt.Println(err, err == nil, err != nil)
-	if err != nil {
-		return err
-	}
-	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"net"
+	"net/rpc"
 )
 
 type Node struct {
@@ -50,22 +51,19 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	}
 	fmt.Println(exitLayer)
 
+	serverClient, err := rpc.Dial("tcp", exitLayer.ServerAddr)
+	if err != nil {
+		return nil, err
+	}
+	defer serverClient.Close()
+	err = serverClient.Call(exitLayer.ServiceMethod, &exitLayer.Args, &exitLayer.Res)
+	if err != nil {
+		return nil, err
+	}
 	return &ResEncrypted{
 		Encrypted: role.Encrypt(&exitLayer.Res, cipher),
 	}, nil
 
-	//serverClient, err := rpc.DialHTTP("tcp", exitLayer.ServerAddr)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//defer serverClient.Close()
-	//err = serverClient.Call(exitLayer.ServiceMethod, &exitLayer.Args, &exitLayer.Res)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return &ResEncrypted{
-	//	Encrypted: role.Encrypt(&exitLayer.Res, cipher),
-	//}, nil
 }
 
 func (node *Node) CheckError(err error) {

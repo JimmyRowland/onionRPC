@@ -2,13 +2,10 @@ package main
 
 import (
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/server"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"fmt"
 )
-
-type RandomNumber struct {
-	number int
-}
 
 func main() {
 	var config onionRPC.ClientConfig
@@ -16,8 +13,8 @@ func main() {
 	client := onionRPC.Client{ClientConfig: config}
 
 	client.Start(client.ClientConfig)
-	returnValue := RandomNumber{number: 111}
-	err := client.RpcCall("server", "Server.GetRandomNumber", RandomNumber{number: 2}, &returnValue)
-	fmt.Println(err, returnValue)
+	returnValue := server.RandomNumber{Number: 111}
+	err := client.RpcCall(config.ServerAddr, "Server.GetRandomNumber", server.RandomNumber{Number: 2}, &returnValue)
+	fmt.Println(err, returnValue.Number)
 	select {}
 }

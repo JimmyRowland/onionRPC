@@ -1,0 +1,11 @@
+syntax = "proto3";
+option go_package = "cs.ubc.ca/cpsc416/onionRPC/server";
+package server;
+
+message RandomNumber {
+  int32 number = 1;
+}
+
+service ServerService {
+  rpc GetRandomNumber(RandomNumber) returns (RandomNumber) {}
+}

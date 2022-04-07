@@ -26,6 +26,7 @@ import (
 type ClientConfig struct {
 	ClientID          string
 	TracingServerAddr string
+	ServerAddr        string
 	TracingIdentity   string
 	CoordAddr         string
 }
@@ -202,7 +203,7 @@ func (client *Client) getExitSharedSecret() error {
 
 func (client *Client) RpcCall(serverAddr string, serviceMethod string, args interface{}, res interface{}) error {
 	timeouts := 0
-	timeout := 1000
+	timeout := 100000
 	done := make(chan bool)
 
 	for {

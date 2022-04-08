@@ -26,7 +26,6 @@ import (
 type ClientConfig struct {
 	ClientID          string
 	TracingServerAddr string
-	ServerAddr        string
 	TracingIdentity   string
 	CoordAddr         string
 }

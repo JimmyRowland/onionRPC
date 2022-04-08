@@ -14,7 +14,8 @@ func main() {
 
 	client.Start(client.ClientConfig)
 	returnValue := server.RandomNumber{Number: 111}
-	err := client.RpcCall(config.ServerAddr, "Server.GetRandomNumber", server.RandomNumber{Number: 2}, &returnValue)
+	args := new(interface{})
+	err := client.RpcCall(config.ServerAddr, "Server.GetRandomNumber", args, &returnValue)
 	fmt.Println(err, returnValue.Number)
 	select {}
 }

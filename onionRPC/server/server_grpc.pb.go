@@ -22,7 +22,7 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ServerServiceClient interface {
-	GetRandomNumber(ctx context.Context, in *RandomNumber, opts ...grpc.CallOption) (*RandomNumber, error)
+	GetRandomNumber(ctx context.Context, in *Args, opts ...grpc.CallOption) (*RandomNumber, error)
 }
 
 type serverServiceClient struct {
@@ -33,7 +33,7 @@ func NewServerServiceClient(cc grpc.ClientConnInterface) ServerServiceClient {
 	return &serverServiceClient{cc}
 }
 
-func (c *serverServiceClient) GetRandomNumber(ctx context.Context, in *RandomNumber, opts ...grpc.CallOption) (*RandomNumber, error) {
+func (c *serverServiceClient) GetRandomNumber(ctx context.Context, in *Args, opts ...grpc.CallOption) (*RandomNumber, error) {
 	out := new(RandomNumber)
 	err := c.cc.Invoke(ctx, "/server.ServerService/GetRandomNumber", in, out, opts...)
 	if err != nil {
@@ -46,7 +46,7 @@ func (c *serverServiceClient) GetRandomNumber(ctx context.Context, in *RandomNum
 // All implementations must embed UnimplementedServerServiceServer
 // for forward compatibility
 type ServerServiceServer interface {
-	GetRandomNumber(context.Context, *RandomNumber) (*RandomNumber, error)
+	GetRandomNumber(context.Context, *Args) (*RandomNumber, error)
 	mustEmbedUnimplementedServerServiceServer()
 }
 
@@ -54,7 +54,7 @@ type ServerServiceServer interface {
 type UnimplementedServerServiceServer struct {
 }
 
-func (UnimplementedServerServiceServer) GetRandomNumber(context.Context, *RandomNumber) (*RandomNumber, error) {
+func (UnimplementedServerServiceServer) GetRandomNumber(context.Context, *Args) (*RandomNumber, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetRandomNumber not implemented")
 }
 func (UnimplementedServerServiceServer) mustEmbedUnimplementedServerServiceServer() {}
@@ -71,7 +71,7 @@ func RegisterServerServiceServer(s grpc.ServiceRegistrar, srv ServerServiceServe
 }
 
 func _ServerService_GetRandomNumber_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RandomNumber)
+	in := new(Args)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -83,7 +83,7 @@ func _ServerService_GetRandomNumber_Handler(srv interface{}, ctx context.Context
 		FullMethod: "/server.ServerService/GetRandomNumber",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ServerServiceServer).GetRandomNumber(ctx, req.(*RandomNumber))
+		return srv.(ServerServiceServer).GetRandomNumber(ctx, req.(*Args))
 	}
 	return interceptor(ctx, in, info, handler)
 }

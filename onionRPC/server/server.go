@@ -22,7 +22,7 @@ type Config struct {
 	TracingIdentity   string
 }
 
-func (server *Server) GetRandomNumber(_ context.Context, _ *RandomNumber) (*RandomNumber, error) {
+func (server *Server) GetRandomNumber(_ context.Context, _ *Args) (*RandomNumber, error) {
 	num := RandomNumber{Number: int32(rand.Uint32())}
 	fmt.Println("Generating random number: ", num.Number)
 	return &num, nil

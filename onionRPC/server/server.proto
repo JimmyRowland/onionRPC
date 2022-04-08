@@ -6,6 +6,8 @@ message RandomNumber {
   int32 number = 1;
 }
 
+message Args {}
+
 service ServerService {
-  rpc GetRandomNumber(RandomNumber) returns (RandomNumber) {}
+  rpc GetRandomNumber(Args) returns (RandomNumber) {}
 }

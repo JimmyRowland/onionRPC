@@ -7,13 +7,14 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/server"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"net"
-	"net/rpc"
 )
 
 type Node struct {
@@ -51,15 +52,19 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	}
 	fmt.Println(exitLayer)
 
-	serverClient, err := rpc.Dial("tcp", exitLayer.ServerAddr)
+	conn, err := grpc.Dial(exitLayer.ServerAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
-	defer serverClient.Close()
-	err = serverClient.Call(exitLayer.ServiceMethod, &exitLayer.Args, &exitLayer.Res)
+	defer conn.Close()
+	serverClient := server.NewServerServiceClient(conn)
+	args := new(server.Args)
+	res, err := serverClient.GetRandomNumber(context.Background(), args)
 	if err != nil {
 		return nil, err
 	}
+	exitLayer.Res = res
+
 	return &ResEncrypted{
 		Encrypted: role.Encrypt(&exitLayer.Res, cipher),
 	}, nil

@@ -249,7 +249,6 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 				return err
 			}
 			err = role.Decrypt(resRelayLayer.Encrypted, client.Exit.sharedSecret, res)
-			fmt.Println(err, err == nil, err != nil)
 			if err != nil {
 				return err
 			}

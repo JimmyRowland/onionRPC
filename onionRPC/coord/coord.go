@@ -284,41 +284,7 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 
 		if c.nActiveExits > 0 && c.nActiveGuards > 0 && c.nActiveRelays > 0 {
 			// Randomly select guard, exit, and relay nodes
-			guardIndex := rand.Intn(c.nActiveGuards)
-			exitIndex := rand.Intn(c.nActiveExits)
-			relayIndex := rand.Intn(c.nActiveRelays)
-			var guard, exit, relay onionRPC.OnionNode
-
-			for _, node := range c.guardNodes {
-				if node.IsActive && guardIndex == 0 {
-					guard = onionRPC.OnionNode{
-						RpcAddress: node.ClientListenAddr,
-					}
-					break
-				} else if node.IsActive {
-					guardIndex -= 1
-				}
-			}
-			for _, node := range c.exitNodes {
-				if node.IsActive && guardIndex == 0 {
-					exit = onionRPC.OnionNode{
-						RpcAddress: node.ClientListenAddr,
-					}
-					break
-				} else if node.IsActive {
-					exitIndex -= 1
-				}
-			}
-			for _, node := range c.relayNodes {
-				if node.IsActive && guardIndex == 0 {
-					relay = onionRPC.OnionNode{
-						RpcAddress: node.ClientListenAddr,
-					}
-					break
-				} else if node.IsActive {
-					relayIndex -= 1
-				}
-			}
+			guard, exit, relay := c.getNewCircuit(msg.OldGuardAddr, msg.OldRelayAddr, msg.OldExitAddr)
 			conn.Write(encode(onionRPC.OnionCircuitResponse{
 				Error:  nil,
 				Guard:  guard,
@@ -335,6 +301,89 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 
 		c.mu.Unlock()
 	}
+}
+
+// Randomly generates a new circuit
+// Assumes caller is hold c.mutex
+// Assumes coord has at least 1 active guard, relay, and exit node
+func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (guard, exit, relay onionRPC.OnionNode) {
+	guardIndex := rand.Intn(c.nActiveGuards)
+	exitIndex := rand.Intn(c.nActiveExits)
+	relayIndex := rand.Intn(c.nActiveRelays)
+
+	if c.nActiveExits > 1 && oldExitAddr != "" {
+		for _, node := range c.exitNodes {
+			if node.IsActive && exitIndex == 0 && node.ClientListenAddr != oldExitAddr {
+				exit = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				exitIndex -= 1
+			}
+		}
+	} else if c.nActiveExits == 1 {
+		for _, node := range c.exitNodes {
+			if node.IsActive && exitIndex == 0 {
+				exit = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				exitIndex -= 1
+			}
+		}
+	}
+
+	if c.nActiveGuards > 1 && oldGuardAddr != "" {
+		for _, node := range c.guardNodes {
+			if node.IsActive && guardIndex == 0 {
+				guard = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				guardIndex -= 1
+			}
+		}
+	} else {
+		for _, node := range c.guardNodes {
+			if node.IsActive && guardIndex == 0 && node.ClientListenAddr != oldGuardAddr {
+				guard = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				guardIndex -= 1
+			}
+		}
+	}
+
+	if c.nActiveRelays > 1 && oldRelayAddr != "" {
+		for _, node := range c.relayNodes {
+			if node.IsActive && guardIndex == 0 && node.ClientListenAddr != oldRelayAddr {
+				relay = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				relayIndex -= 1
+			}
+		}
+	} else {
+		for _, node := range c.relayNodes {
+			if node.IsActive && guardIndex == 0 {
+				relay = onionRPC.OnionNode{
+					RpcAddress: node.ClientListenAddr,
+				}
+				break
+			} else if node.IsActive {
+				relayIndex -= 1
+			}
+		}
+	}
+
+	return guard, exit, relay
 }
 
 func (c *Coord) startMonitoringServer(raddr string, lostMsgsThresh uint8) {

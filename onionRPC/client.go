@@ -45,7 +45,7 @@ type Client struct {
 
 func (client *Client) Start(config ClientConfig) {
 	client.ClientConfig = config
-	client.getNodes([]OnionNode{})
+	client.getNodes("", "", "")
 	err := client.getGuardSharedSecret()
 	if err != nil {
 		fmt.Println(err)
@@ -65,8 +65,10 @@ func (client *Client) Start(config ClientConfig) {
 }
 
 type OnionCircuitRequest struct {
-	OnionNodes []OnionNode
-	Timestamp  time.Time
+	OldExitAddr  string
+	OldRelayAddr string
+	OldGuardAddr string
+	Timestamp    time.Time
 }
 
 type OnionCircuitResponse struct {
@@ -77,14 +79,19 @@ type OnionCircuitResponse struct {
 	Relays []OnionNode // TODO: implement multi-relay circuits
 }
 
-func (client *Client) getNodes(prevNodes []OnionNode) {
+func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 	// TODO: https://www.figma.com/file/kP9OXD9I8nZgCYLmx5RpY4/Untitled?node-id=34%3A44
 	coordAddr := client.ClientConfig.CoordAddr
 	conn, err := net.Dial("tcp", coordAddr)
 	checkErr(err, "Client failed to connect to coord")
 
 	// Send request for a new circuit
-	req := OnionCircuitRequest{Timestamp: time.Now(), OnionNodes: prevNodes}
+	req := OnionCircuitRequest{
+		Timestamp:    time.Now(),
+		OldExitAddr:  oldExitAddr,
+		OldRelayAddr: oldRelayAddr,
+		OldGuardAddr: oldGuardAddr,
+	}
 	conn.Write(encode(req))
 
 	// Receive and decode response
@@ -104,7 +111,6 @@ func (client *Client) getNodes(prevNodes []OnionNode) {
 	client.Exit = msg.Exit
 	client.Guard = msg.Guard
 	client.Relay = msg.Relay
-	// TODO: implement multi-relay circuits using `msg.Relays`
 }
 
 func (client *Client) getGuardSharedSecret() error {
@@ -263,7 +269,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 		case <-time.After(time.Duration(timeout) * time.Millisecond):
 			timeouts++
 			if timeouts >= 3 {
-				client.getNodes([]OnionNode{client.Exit, client.Guard, client.Relay})
+				client.getNodes(client.Exit.RpcAddress, client.Relay.RpcAddress, client.Guard.RpcAddress)
 				err := client.getGuardSharedSecret()
 				if err != nil {
 					fmt.Println(err)

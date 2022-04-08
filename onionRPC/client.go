@@ -203,7 +203,7 @@ func (client *Client) getExitSharedSecret() error {
 
 func (client *Client) RpcCall(serverAddr string, serviceMethod string, args interface{}, res interface{}) error {
 	timeouts := 0
-	timeout := 100000
+	timeout := 1000
 	done := make(chan bool)
 
 	for {

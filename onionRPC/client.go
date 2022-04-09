@@ -285,6 +285,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 					fmt.Println(err)
 					panic(err)
 				}
+				break
 			}
 			continue
 		}

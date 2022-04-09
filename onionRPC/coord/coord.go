@@ -235,19 +235,19 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		c.fc.StopMonitoring(failedServerAddr)
 
 		var node *NodeConnection
-		for i, _ := range c.guardNodes {
+		for i := range c.guardNodes {
 			if c.guardNodes[i].FcheckAddr == failedServerAddr {
 				node = &c.guardNodes[i]
 				c.nActiveGuards -= 1
 			}
 		}
-		for i, _ := range c.exitNodes {
+		for i := range c.exitNodes {
 			if c.exitNodes[i].FcheckAddr == failedServerAddr {
 				node = &c.exitNodes[i]
 				c.nActiveExits -= 1
 			}
 		}
-		for i, _ := range c.relayNodes {
+		for i := range c.relayNodes {
 			if c.relayNodes[i].FcheckAddr == failedServerAddr {
 				node = &c.relayNodes[i]
 				c.nActiveRelays -= 1
@@ -307,13 +307,13 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 // Assumes coord has at least 1 active guard, relay, and exit node
 func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (guard, exit, relay onionRPC.OnionNode) {
 
-	getActiveValue := func(arr []NodeConnection) *NodeConnection {
+	getActiveValue := func(arr []NodeConnection, oldAddr string) *NodeConnection {
 		var retVal *NodeConnection
 		idx := 0
 		siz := len(arr)
 		for i := 0; i < siz; {
 			idx %= siz
-			if arr[idx].IsActive {
+			if arr[idx].IsActive && arr[idx].ClientListenAddr != oldAddr {
 				retVal = &arr[idx]
 				i++
 			}
@@ -321,9 +321,9 @@ func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (g
 		}
 		return retVal
 	}
-	guardNode := getActiveValue(c.guardNodes)
-	exitNode := getActiveValue(c.exitNodes)
-	relayNode := getActiveValue(c.relayNodes)
+	guardNode := getActiveValue(c.guardNodes, oldGuardAddr)
+	exitNode := getActiveValue(c.exitNodes, oldRelayAddr)
+	relayNode := getActiveValue(c.relayNodes, oldExitAddr)
 
 	_func := func(c *NodeConnection) onionRPC.OnionNode {
 		return onionRPC.OnionNode{RpcAddress: c.ClientListenAddr}

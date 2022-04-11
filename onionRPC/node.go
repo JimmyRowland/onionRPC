@@ -13,6 +13,7 @@ import (
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/guardNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
+	"github.com/DistributedClocks/tracing"
 	"github.com/google/uuid"
 )
 
@@ -22,17 +23,34 @@ const (
 	RELAY_NODE_TYPE = "Relay"
 )
 
+type NodeStart struct {
+	NodeId uuid.UUID
+}
+
+type NodeJoining struct {
+	NodeId uuid.UUID
+}
+
+type NodeJoined struct {
+	NodeId uuid.UUID
+	Role   string
+}
+
+//***
+
 type OnionNodeJoinRequest struct {
 	Timestamp        time.Time
 	FcheckAddr       string // Address the server will use to listen for fcheck connection
 	ClientListenAddr string // Address the server will use to listen for client->server connections
 	ServerListenAddr string // Address the server will use to listen for server->server connections
 	NodeId           uuid.UUID
+	Token            tracing.TracingToken
 }
 
 type OnionNodeJoinResponse struct {
 	Timestamp time.Time
 	Role      string
+	Token     tracing.TracingToken
 }
 
 type NodeConfig struct {
@@ -56,6 +74,7 @@ type Node struct {
 	RelayNode   relayNode.Node
 	ExitNode    exitNode.Node
 	GuardNode   guardNode.Node
+	Tracer      *tracing.Tracer
 }
 
 func NewNode() *Node {
@@ -67,6 +86,14 @@ func NewNode() *Node {
 func (n *Node) Start(config NodeConfig) error {
 	n.mu.Lock()
 	n.NodeConfig = config
+
+	n.Tracer = tracing.NewTracer(tracing.TracerConfig{
+		ServerAddress:  config.TracingServerAddr,
+		TracerIdentity: config.TracingIdentity,
+	})
+	trace := n.Tracer.CreateTrace()
+	trace.RecordAction(NodeStart{NodeId: n.Id})
+
 	//Will only support single role
 	n.GuardNode.RoleConfig.ListenAddr = config.ClientListenAddr
 	n.RelayNode.RoleConfig.ListenAddr = config.ClientListenAddr
@@ -109,13 +136,17 @@ func (n *Node) connectToCoord() {
 	checkErr(err, "Failed to connect to coordinator")
 	defer conn.Close()
 
+	trace := n.Tracer.CreateTrace()
+	trace.RecordAction(NodeJoining{n.Id})
+
 	// Send join request
 	msg := OnionNodeJoinRequest{
-		time.Now(),
-		n.NodeConfig.FcheckAddr,
-		n.NodeConfig.ClientListenAddr,
-		n.NodeConfig.ServerListenAddr,
-		n.Id,
+		Timestamp:        time.Now(),
+		FcheckAddr:       n.NodeConfig.FcheckAddr,
+		ClientListenAddr: n.NodeConfig.ClientListenAddr,
+		ServerListenAddr: n.NodeConfig.ServerListenAddr,
+		NodeId:           n.Id,
+		Token:            trace.GenerateToken(),
 	}
 
 	conn.Write(encode(msg))
@@ -131,6 +162,8 @@ func (n *Node) connectToCoord() {
 	decoder := gob.NewDecoder(tmpbuff)
 	decoder.Decode(res)
 
+	n.Tracer.ReceiveToken(res.Token)
+	trace.RecordAction(NodeJoined{NodeId: n.Id, Role: res.Role})
 	// Adopt assigned role
 	n.NodeType = res.Role
 }

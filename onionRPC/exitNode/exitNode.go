@@ -7,17 +7,18 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
-	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
+	"cs.ubc.ca/cpsc416/onionRPC/util"
+	"google.golang.org/grpc"
 )
 
 type Node struct {

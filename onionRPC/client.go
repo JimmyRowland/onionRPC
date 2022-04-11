@@ -42,7 +42,10 @@ type RpcResRecvd struct {
 }
 
 type OnionReq struct {
-	ClientId string
+	ClientId     string
+	OldExitAddr  string
+	OldRelayAddr string
+	OldGuardAddr string
 }
 
 type OnionResRecvd struct {
@@ -113,10 +116,12 @@ func (client *Client) Start(config ClientConfig) {
 }
 
 type OnionCircuitRequest struct {
+	ClientID     string
 	OldExitAddr  string
 	OldRelayAddr string
 	OldGuardAddr string
 	Timestamp    time.Time
+	Token        tracing.TracingToken
 }
 
 type OnionCircuitResponse struct {
@@ -125,11 +130,16 @@ type OnionCircuitResponse struct {
 	Exit   OnionNode
 	Relay  OnionNode
 	Relays []OnionNode // TODO: implement multi-relay circuits
+	Token  tracing.TracingToken
 }
 
 func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(OnionReq{ClientId: client.ClientConfig.ClientID})
+	trace.RecordAction(OnionReq{
+		ClientId:     client.ClientConfig.ClientID,
+		OldExitAddr:  oldExitAddr,
+		OldRelayAddr: oldRelayAddr,
+		OldGuardAddr: oldGuardAddr})
 	// TODO: https://www.figma.com/file/kP9OXD9I8nZgCYLmx5RpY4/Untitled?node-id=34%3A44
 	coordAddr := client.ClientConfig.CoordAddr
 	conn, err := net.Dial("tcp", coordAddr)
@@ -137,10 +147,12 @@ func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 
 	// Send request for a new circuit
 	req := OnionCircuitRequest{
+		ClientID:     client.ClientConfig.ClientID,
 		Timestamp:    time.Now(),
 		OldExitAddr:  oldExitAddr,
 		OldRelayAddr: oldRelayAddr,
 		OldGuardAddr: oldGuardAddr,
+		Token:        trace.GenerateToken(),
 	}
 	conn.Write(encode(req))
 
@@ -161,6 +173,7 @@ func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 	client.Exit = msg.Exit
 	client.Guard = msg.Guard
 	client.Relay = msg.Relay
+	client.Tracer.ReceiveToken(msg.Token)
 	trace.RecordAction(OnionResRecvd{
 		ClientId:  client.ClientConfig.ClientID,
 		ExitAddr:  msg.Exit.RpcAddress,

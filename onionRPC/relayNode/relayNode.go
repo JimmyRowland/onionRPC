@@ -6,15 +6,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
-	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net"
+
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
+	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
 )
 
 type Node struct {

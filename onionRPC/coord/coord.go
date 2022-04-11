@@ -20,22 +20,36 @@ import (
 type CoordStart struct {
 }
 
-type ServerFail struct {
-	ServerId uint8
+type NodeFail struct {
 }
 
-type ServerFailHandledRecvd struct {
-	FailedServerId   uint8
-	AdjacentServerId uint8
+type NodeFailHandledRecvd struct {
 }
 
-type ServerJoiningRecvd struct {
-	ServerId uint8
+type OnionReqRecvd struct {
+	ClientId     string
+	OldExitAddr  string
+	OldRelayAddr string
+	OldGuardAddr string
 }
 
-type ServerJoinedRecvd struct {
-	ServerId uint8
+type OnionRes struct {
+	ClientId  string
+	ExitAddr  string
+	RelayAddr string
+	GuardAddr string
 }
+
+type NodeJoiningRecvd struct {
+	NodeId uuid.UUID
+}
+
+type NodeJoinedRecvd struct {
+	NodeId uuid.UUID
+	Role   string
+}
+
+//***
 
 type CoordConfig struct {
 	ClientAPIListenAddr string
@@ -58,6 +72,7 @@ type Coord struct {
 	nActiveGuards int
 	nActiveExits  int
 	nActiveRelays int
+	tracer        *tracing.Tracer
 }
 
 func NewCoord() *Coord {
@@ -68,6 +83,11 @@ func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lo
 	c.mu.Lock()
 	c.isActive = true
 	c.mu.Unlock()
+
+	c.tracer = ctrace
+
+	trace := c.tracer.CreateTrace()
+	trace.RecordAction(CoordStart{})
 
 	// 1. Begin fcheck
 	fcStruct := fchecker.StartStruct{
@@ -135,6 +155,9 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		decoder := gob.NewDecoder(tmpbuff)
 		decoder.Decode(msg)
 
+		trace := c.tracer.ReceiveToken(msg.Token)
+		trace.RecordAction(NodeJoiningRecvd{msg.NodeId})
+
 		// Begin fcheck monitoring of node
 		c.startMonitoringServer(msg.FcheckAddr, lostMsgsThresh)
 
@@ -180,7 +203,8 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		c.mu.Unlock()
 
 		// Send acknowledgement to node
-		res := onionRPC.OnionNodeJoinResponse{time.Now(), nodeType}
+		trace.RecordAction(NodeJoinedRecvd{NodeId: msg.NodeId, Role: nodeType})
+		res := onionRPC.OnionNodeJoinResponse{time.Now(), nodeType, trace.GenerateToken()}
 		conn.Write(encode(res))
 		if !didReplace {
 			fmt.Println("Established connection with a new onion node")
@@ -231,8 +255,12 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		fmt.Println("Onion coordinator detected node failure")
 		c.mu.Lock()
 
+		trace := c.tracer.CreateTrace()
+
 		failedServerAddr := fail.UDPIpPort
 		c.fc.StopMonitoring(failedServerAddr)
+
+		trace.RecordAction(NodeFail{})
 
 		var node *NodeConnection
 		for i, _ := range c.guardNodes {
@@ -257,6 +285,7 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		node.IsActive = false
 
 		fmt.Println("Node failure was processed by the coordinator")
+		trace.RecordAction(NodeFailHandledRecvd{})
 
 		c.mu.Unlock()
 	}
@@ -281,15 +310,29 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 
 		c.mu.Lock()
 
+		trace := c.tracer.ReceiveToken(msg.Token)
+		trace.RecordAction(OnionReqRecvd{
+			ClientId:     msg.ClientID,
+			OldExitAddr:  msg.OldExitAddr,
+			OldGuardAddr: msg.OldGuardAddr,
+			OldRelayAddr: msg.OldRelayAddr})
+
 		if c.nActiveExits > 0 && c.nActiveGuards > 0 && c.nActiveRelays > 0 {
 			// Randomly select guard, exit, and relay nodes
 			guard, exit, relay := c.getNewCircuit(msg.OldGuardAddr, msg.OldRelayAddr, msg.OldExitAddr)
+			trace.RecordAction(OnionRes{
+				ClientId:  msg.ClientID,
+				ExitAddr:  exit.RpcAddress,
+				RelayAddr: relay.RpcAddress,
+				GuardAddr: guard.RpcAddress,
+			})
 			conn.Write(encode(onionRPC.OnionCircuitResponse{
 				Error:  nil,
 				Guard:  guard,
 				Exit:   exit,
 				Relay:  relay,
 				Relays: nil,
+				Token:  trace.GenerateToken(),
 			}))
 		} else {
 			conn.Write(encode(onionRPC.OnionCircuitResponse{

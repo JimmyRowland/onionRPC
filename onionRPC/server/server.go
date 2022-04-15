@@ -2,9 +2,11 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"net"
-	"net/http"
+	"net/rpc"
+	"net/rpc/jsonrpc"
 
 	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"github.com/DistributedClocks/tracing"
@@ -61,15 +63,22 @@ func (server *Server) Start(config Config, ctrace *tracing.Tracer) error {
 	server.tracer = ctrace
 	server.trace = ctrace.CreateTrace()
 	server.trace.RecordAction(ServerStart{config})
-	rpcServer := NewRPCServer()
-	err := rpcServer.Register(server)
-	util.CheckErr(err, config.ServerAddr)
-	lis, err := net.Listen("tcp", config.ServerAddr)
-	util.CheckErr(err, config.ServerAddr)
-	defer lis.Close()
-	NewHTTPServer(rpcServer).Serve(lis)
 
-	http.Serve(lis, nil)
-	fmt.Println("RPCServer started ", config.ServerAddr)
-	select {}
+	l, err := net.Listen("tcp", config.ServerAddr)
+	if err != nil {
+		log.Fatal("listen error:", err)
+	}
+
+	err = rpc.Register(server)
+	util.CheckErr(err, config.ServerAddr)
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			log.Fatal("accept error:", err)
+		}
+
+		go rpc.ServeCodec(jsonrpc.NewServerCodec(conn))
+	}
 }

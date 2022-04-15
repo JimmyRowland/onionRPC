@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"math/rand"
 	"net"
 	"os"
 	"sync"
@@ -354,7 +353,7 @@ func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (g
 	getActiveValue := func(arr []NodeConnection, oldAddr string) *NodeConnection {
 		var retVal *NodeConnection
 		idx := 0
-		siz := rand.Intn(len(arr))
+		siz := len(arr)
 		for i := 0; i < siz; {
 			idx %= siz
 			if arr[idx].IsActive && arr[idx].ClientListenAddr != oldAddr {

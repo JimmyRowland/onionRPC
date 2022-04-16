@@ -96,22 +96,7 @@ func (client *Client) Start(config ClientConfig) {
 	})
 	trace := client.Tracer.CreateTrace()
 	trace.RecordAction(ClientStart{ClientId: client.ClientConfig.ClientID})
-	client.getNodes("", "", "")
-	err := client.getGuardSharedSecret()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-	err = client.getRelaySharedSecret()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
-	err = client.getExitSharedSecret()
-	if err != nil {
-		fmt.Println(err)
-		panic(err)
-	}
+	client.setUpOnionChain(0)
 
 }
 

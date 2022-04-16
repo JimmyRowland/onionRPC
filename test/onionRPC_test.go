@@ -9,6 +9,8 @@ import (
 	"github.com/DistributedClocks/tracing"
 	"github.com/stretchr/testify/assert"
 	"log"
+	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -32,7 +34,7 @@ func startTracer() {
 	time.Sleep(time.Millisecond * 10)
 }
 
-func startCoord() {
+func startCoord() *coord.Coord {
 	var config coord.CoordConfig
 	util.ReadJSONConfig("../config/coord_config.json", &config)
 	ctracer := tracing.NewTracer(tracing.TracerConfig{
@@ -42,6 +44,7 @@ func startCoord() {
 	})
 	coord := coord.NewCoord()
 	go coord.Start(config.ClientAPIListenAddr, config.ServerAPIListenAddr, config.LostMsgsThresh, ctracer)
+	return coord
 }
 
 func addIdToString(id uint8, string string) string {
@@ -61,8 +64,7 @@ func startNode(id uint8) *onionRPC.Node {
 		TracingIdentity:   addIdToString(id, "node"),
 	}
 	node := onionRPC.NewNode()
-	go node.Start(nodeConfig)
-	time.Sleep(time.Millisecond * 10)
+	node.Start(nodeConfig)
 	return node
 }
 
@@ -156,6 +158,12 @@ func TestOnionChainWithFailedRelay(t *testing.T) {
 	time.Sleep(time.Second * 10)
 	startNode(3)
 	startNode(4)
+	startNode(5)
+	startNode(6)
+	startNode(7)
+	startNode(8)
+	startNode(9)
+	startNode(10)
 	err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Multiply", Operands{A: result.Result, B: 4}, &result)
 	assert.Nil(t, err)
 	assert.Equal(t, 8, result.Result)
@@ -225,4 +233,84 @@ func TestOnionChainWithFailedNodes(t *testing.T) {
 	err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Divide", Operands{A: result.Result, B: 3}, &result)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, result.Result)
+}
+
+func TestOnionChainWithAsyncFailed(t *testing.T) {
+	startTracer()
+	coord := startCoord()
+	coord.DESIRED_RATIO = 1
+	mockServer := startMockServer()
+	nodeMap := make(map[string][]*onionRPC.Node)
+	nodeMap[onionRPC.GUARD_NODE_TYPE] = append(nodeMap[onionRPC.GUARD_NODE_TYPE], startNode(0))
+	nodeMap[onionRPC.EXIT_NODE_TYPE] = append(nodeMap[onionRPC.EXIT_NODE_TYPE], startNode(1))
+	nodeMap[onionRPC.RELAY_NODE_TYPE] = append(nodeMap[onionRPC.RELAY_NODE_TYPE], startNode(2))
+
+	client := startClient()
+	done := make(chan bool)
+	go func() {
+		operands := Operands{A: 1, B: 1}
+		result := Result{}
+		for i := 0; i < 20; i++ {
+			err := client.RpcCall(mockServer.Config.ServerAddr, "Server.Add", operands, &result)
+			assert.Nil(t, err)
+			assert.Equal(t, 2, result.Result)
+			err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Multiply", Operands{A: result.Result, B: 4}, &result)
+			assert.Nil(t, err)
+			assert.Equal(t, 8, result.Result)
+			err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Subtract", Operands{A: result.Result, B: 5}, &result)
+			assert.Nil(t, err)
+			assert.Equal(t, 3, result.Result)
+			err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Divide", Operands{A: result.Result, B: 3}, &result)
+			assert.Nil(t, err)
+			assert.Equal(t, 1, result.Result)
+		}
+		done <- true
+	}()
+	go func() {
+		var idMux sync.Mutex
+		var id uint8
+		id = 3
+		closeNodes := func(nodeType string) {
+			for i := 0; i < 10; i++ {
+				idMux.Lock()
+				nodes := nodeMap[nodeType]
+				//fmt.Println(nodeType, len(nodes))
+				//fmt.Println("guard", len(coord.GuardNodes), " relay:", len(coord.RelayNodes), " exit:", len(coord.ExitNodes))
+				//fmt.Println("guard", coord.NActiveGuards, " relay:", coord.NActiveRelays, " exit:", coord.NActiveExits)
+				if len(nodes) > 0 {
+					randNode := rand.Intn(len(nodes)) - 1
+					for i := 0; i < len(nodes); i++ {
+						if randNode == i {
+							continue
+						}
+						nodes[i].Close()
+					}
+				}
+
+				nodeMap[nodeType] = []*onionRPC.Node{}
+				idMux.Unlock()
+				for i := 0; i < 3; i++ {
+					idMux.Lock()
+					node := startNode(id)
+					switch node.NodeType {
+					case onionRPC.GUARD_NODE_TYPE:
+						nodeMap[onionRPC.GUARD_NODE_TYPE] = append(nodeMap[onionRPC.GUARD_NODE_TYPE], node)
+					case onionRPC.RELAY_NODE_TYPE:
+						nodeMap[onionRPC.RELAY_NODE_TYPE] = append(nodeMap[onionRPC.RELAY_NODE_TYPE], node)
+					case onionRPC.EXIT_NODE_TYPE:
+						nodeMap[onionRPC.EXIT_NODE_TYPE] = append(nodeMap[onionRPC.EXIT_NODE_TYPE], node)
+					}
+					id = (id + 1) % 99
+					idMux.Unlock()
+				}
+
+				time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)+5000))
+			}
+		}
+		go closeNodes(onionRPC.GUARD_NODE_TYPE)
+		go closeNodes(onionRPC.RELAY_NODE_TYPE)
+		go closeNodes(onionRPC.EXIT_NODE_TYPE)
+
+	}()
+	<-done
 }

@@ -80,7 +80,7 @@ func (server *Server) Divide(operands Operands, result *Result) error {
 	if operands.B == 0 {
 		return errors.New("division by 0")
 	}
-	result.Result = operands.A + operands.B
+	result.Result = operands.A / operands.B
 	server.trace.RecordAction(*result)
 	return nil
 }

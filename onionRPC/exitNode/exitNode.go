@@ -12,9 +12,9 @@ import (
 	"net"
 	"net/rpc"
 	"net/rpc/jsonrpc"
+	"time"
 
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
-	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"google.golang.org/grpc"
 )
 
@@ -22,6 +22,7 @@ type Node struct {
 	RoleConfig role.RoleConfig
 	Role       role.Role
 	UnimplementedExitNodeServiceServer
+	listener net.Listener
 }
 
 func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*PublicKey, error) {
@@ -59,7 +60,9 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	defer serverConnection.Close()
 	serverClient := rpc.NewClientWithCodec(jsonrpc.NewClientCodec(serverConnection))
 
+	time.Sleep(time.Millisecond * 50)
 	err = serverClient.Call(exitLayer.ServiceMethod, exitLayer.Args, &exitLayer.Res)
+	time.Sleep(time.Millisecond * 50)
 	if err != nil {
 		return nil, err
 	}
@@ -79,6 +82,7 @@ func (node *Node) Start() {
 	node.Role = role.InitRole()
 	lis, err := net.Listen("tcp", node.RoleConfig.ListenAddr)
 	node.CheckError(err)
+	node.listener = lis
 	defer lis.Close()
 
 	grpcServer := grpc.NewServer()
@@ -86,5 +90,9 @@ func (node *Node) Start() {
 	RegisterExitNodeServiceServer(grpcServer, node)
 	fmt.Println("Exit node started", node.RoleConfig.ListenAddr)
 	err = grpcServer.Serve(lis)
-	util.CheckErr(err, node.RoleConfig.ListenAddr)
+}
+func (node *Node) Close() {
+	if node.listener != nil {
+		node.listener.Close()
+	}
 }

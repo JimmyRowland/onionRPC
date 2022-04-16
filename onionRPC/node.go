@@ -130,6 +130,13 @@ func (n *Node) Start(config NodeConfig) error {
 	return nil
 }
 
+func (n *Node) Close() {
+	n.fc.Stop()
+	n.ExitNode.Close()
+	n.GuardNode.Close()
+	n.RelayNode.Close()
+}
+
 func (n *Node) connectToCoord() {
 	n.mu.Lock()
 	conn, err := net.Dial("tcp", n.NodeConfig.CoordAddr)

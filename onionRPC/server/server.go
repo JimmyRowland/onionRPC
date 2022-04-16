@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -42,6 +43,46 @@ type GetRandNum struct{ Number int }
 type GetLongString struct {
 	LongString string
 	Number     int
+}
+
+type Operands struct {
+	A int
+	B int
+}
+
+type Result struct {
+	Result int
+}
+
+func (server *Server) Add(operands Operands, result *Result) error {
+	server.trace.RecordAction(operands)
+	result.Result = operands.A + operands.B
+	server.trace.RecordAction(*result)
+	return nil
+}
+
+func (server *Server) Subtract(operands Operands, result *Result) error {
+	server.trace.RecordAction(operands)
+	result.Result = operands.A - operands.B
+	server.trace.RecordAction(*result)
+	return nil
+}
+
+func (server *Server) Multiply(operands Operands, result *Result) error {
+	server.trace.RecordAction(operands)
+	result.Result = operands.A * operands.B
+	server.trace.RecordAction(*result)
+	return nil
+}
+
+func (server *Server) Divide(operands Operands, result *Result) error {
+	server.trace.RecordAction(operands)
+	if operands.B == 0 {
+		return errors.New("division by 0")
+	}
+	result.Result = operands.A + operands.B
+	server.trace.RecordAction(*result)
+	return nil
 }
 
 func (server *Server) GetRandomNumber(_ RandomNumber, randomNumber *RandomNumber) error {

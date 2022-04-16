@@ -7,21 +7,22 @@ import (
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"crypto/x509"
+	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
+	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"google.golang.org/grpc"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"net/rpc"
 	"net/rpc/jsonrpc"
-
-	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
-	"cs.ubc.ca/cpsc416/onionRPC/util"
-	"google.golang.org/grpc"
+	"sync"
 )
 
 type Node struct {
+	mu         sync.Mutex
 	RoleConfig role.RoleConfig
 	Role       role.Role
 	UnimplementedExitNodeServiceServer
@@ -31,6 +32,8 @@ func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*Public
 	privb, pubb := role.GetPrivateAndPublicKey()
 	pubbBytes, _ := x509.MarshalPKIXPublicKey(&pubb)
 	pubaParsed, _ := x509.ParsePKIXPublicKey(in.PublicKey)
+	node.mu.Lock()
+	defer node.mu.Unlock()
 	switch puba := pubaParsed.(type) {
 	case *ecdsa.PublicKey:
 		shared, _ := puba.Curve.ScalarMult(puba.X, puba.Y, privb.D.Bytes())

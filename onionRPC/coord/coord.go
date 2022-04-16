@@ -351,23 +351,30 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 // Assumes coord has at least 1 active guard, relay, and exit node
 func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (guard, exit, relay onionRPC.OnionNode) {
 
-	getActiveValue := func(arr []NodeConnection, oldAddr string) *NodeConnection {
+	getActiveValue := func(arr []NodeConnection, nActive int, oldAddr string) *NodeConnection {
 		var retVal *NodeConnection
 		siz := len(arr)
 		idx := rand.Intn(siz)
-		for i := 0; i < siz; {
+		for {
 			idx %= siz
-			if arr[idx].IsActive && arr[idx].ClientListenAddr != oldAddr {
-				retVal = &arr[idx]
-				i++
+			if nActive > 1 {
+				if arr[idx].IsActive && arr[idx].ClientListenAddr != oldAddr {
+					retVal = &arr[idx]
+					return retVal
+				}
+			} else {
+				if arr[idx].IsActive {
+					retVal = &arr[idx]
+					return retVal
+				}
 			}
+
 			idx++
 		}
-		return retVal
 	}
-	guardNode := getActiveValue(c.guardNodes, oldGuardAddr)
-	exitNode := getActiveValue(c.exitNodes, oldExitAddr)
-	relayNode := getActiveValue(c.relayNodes, oldRelayAddr)
+	guardNode := getActiveValue(c.guardNodes, c.nActiveGuards, oldGuardAddr)
+	exitNode := getActiveValue(c.exitNodes, c.nActiveExits, oldExitAddr)
+	relayNode := getActiveValue(c.relayNodes, c.nActiveRelays, oldRelayAddr)
 
 	_func := func(c *NodeConnection) onionRPC.OnionNode {
 		return onionRPC.OnionNode{RpcAddress: c.ClientListenAddr}

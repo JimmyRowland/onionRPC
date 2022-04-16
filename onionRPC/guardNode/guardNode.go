@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/relayNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
@@ -19,6 +20,7 @@ import (
 )
 
 type Node struct {
+	mu         sync.Mutex
 	RoleConfig role.RoleConfig
 	Role       role.Role
 	UnimplementedGuardNodeServiceServer
@@ -28,6 +30,8 @@ func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*Public
 	privb, pubb := role.GetPrivateAndPublicKey()
 	pubbBytes, _ := x509.MarshalPKIXPublicKey(&pubb)
 	pubaParsed, _ := x509.ParsePKIXPublicKey(in.PublicKey)
+	node.mu.Lock()
+	defer node.mu.Unlock()
 	switch puba := pubaParsed.(type) {
 	case *ecdsa.PublicKey:
 		shared, _ := puba.Curve.ScalarMult(puba.X, puba.Y, privb.D.Bytes())

@@ -89,6 +89,15 @@ func startClient() *onionRPC.Client {
 	return &client
 }
 
+func startClientWithId(clientId string) *onionRPC.Client {
+	var config onionRPC.ClientConfig
+	util.ReadJSONConfig("../config/client_config.json", &config)
+	config.ClientID = clientId
+	client := onionRPC.Client{ClientConfig: config}
+	client.Start(client.ClientConfig)
+	return &client
+}
+
 func TestOnionChainWithoutFailure(t *testing.T) {
 	startTracer()
 	startCoord()
@@ -245,9 +254,10 @@ func TestOnionChainWithAsyncFailed(t *testing.T) {
 	nodeMap[onionRPC.EXIT_NODE_TYPE] = append(nodeMap[onionRPC.EXIT_NODE_TYPE], startNode(1))
 	nodeMap[onionRPC.RELAY_NODE_TYPE] = append(nodeMap[onionRPC.RELAY_NODE_TYPE], startNode(2))
 
-	client := startClient()
-	done := make(chan bool)
-	go func() {
+	var waitGroup sync.WaitGroup
+	waitGroup.Add(2)
+	runClientTests := func(clientId string) {
+		client := startClientWithId(clientId)
 		operands := Operands{A: 1, B: 1}
 		result := Result{}
 		for i := 0; i < 20; i++ {
@@ -264,8 +274,10 @@ func TestOnionChainWithAsyncFailed(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Equal(t, 1, result.Result)
 		}
-		done <- true
-	}()
+		waitGroup.Done()
+	}
+	go runClientTests("client1")
+	go runClientTests("client2")
 	go func() {
 		var idMux sync.Mutex
 		var id uint8
@@ -312,5 +324,5 @@ func TestOnionChainWithAsyncFailed(t *testing.T) {
 		go closeNodes(onionRPC.EXIT_NODE_TYPE)
 
 	}()
-	<-done
+	waitGroup.Wait()
 }

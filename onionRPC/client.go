@@ -356,25 +356,33 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 		case <-time.After(time.Duration(timeout) * time.Millisecond):
 			timeouts++
 			if timeouts >= 3 {
-				client.getNodes(client.Exit.RpcAddress, client.Relay.RpcAddress, client.Guard.RpcAddress)
-				err := client.getGuardSharedSecret()
-				if err != nil {
-					fmt.Println(err)
-					panic(err)
-				}
-				err = client.getRelaySharedSecret()
-				if err != nil {
-					fmt.Println(err)
-					panic(err)
-				}
-				err = client.getExitSharedSecret()
-				if err != nil {
-					fmt.Println(err)
-					panic(err)
-				}
+				client.setUpOnionChain(0)
 			}
 			continue
 		}
 		return nil
+	}
+}
+
+func (client *Client) setUpOnionChain(retries int) {
+	if retries >= 100 {
+		panic("Could not set up onion chain")
+	}
+	time.Sleep(time.Millisecond * 500)
+	client.getNodes(client.Exit.RpcAddress, client.Relay.RpcAddress, client.Guard.RpcAddress)
+	err := client.getGuardSharedSecret()
+	if err != nil {
+		client.setUpOnionChain(retries + 1)
+		return
+	}
+	err = client.getRelaySharedSecret()
+	if err != nil {
+		client.setUpOnionChain(retries + 1)
+		return
+	}
+	err = client.getExitSharedSecret()
+	if err != nil {
+		client.setUpOnionChain(retries + 1)
+		return
 	}
 }

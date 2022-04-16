@@ -67,12 +67,13 @@ type Coord struct {
 	fc            *fchecker.Fcheck
 	stopChan      chan bool
 	isActive      bool
-	guardNodes    []NodeConnection
-	exitNodes     []NodeConnection
-	relayNodes    []NodeConnection
-	nActiveGuards int
-	nActiveExits  int
-	nActiveRelays int
+	GuardNodes    []NodeConnection
+	ExitNodes     []NodeConnection
+	RelayNodes    []NodeConnection
+	NActiveGuards int
+	NActiveExits  int
+	NActiveRelays int
+	DESIRED_RATIO int
 	tracer        *tracing.Tracer
 }
 
@@ -177,14 +178,14 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		didReplace := false
 		var nodeArr *[]NodeConnection
 		if nodeType == onionRPC.GUARD_NODE_TYPE {
-			nodeArr = &c.guardNodes
-			c.nActiveGuards += 1
+			nodeArr = &c.GuardNodes
+			c.NActiveGuards += 1
 		} else if nodeType == onionRPC.EXIT_NODE_TYPE {
-			nodeArr = &c.exitNodes
-			c.nActiveExits += 1
+			nodeArr = &c.ExitNodes
+			c.NActiveExits += 1
 		} else {
-			nodeArr = &c.relayNodes
-			c.nActiveRelays += 1
+			nodeArr = &c.RelayNodes
+			c.NActiveRelays += 1
 		}
 		// Look for node in roster, update it if present
 		for _, node := range *nodeArr {
@@ -220,27 +221,29 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 // This function assumes that the caller is holding the lock for the mutex `c.mu`
 func (c *Coord) chooseNodeType() string {
 	// 1. Prioritoze getting 1 of each type
-	if c.nActiveGuards == 0 {
+	if c.NActiveGuards == 0 {
 		return onionRPC.GUARD_NODE_TYPE
-	} else if c.nActiveExits == 0 {
+	} else if c.NActiveExits == 0 {
 		return onionRPC.EXIT_NODE_TYPE
-	} else if c.nActiveRelays == 0 {
+	} else if c.NActiveRelays == 0 {
 		return onionRPC.RELAY_NODE_TYPE
 	}
 
 	// 2. Prioritize getting at least 2 guards and exits
-	if c.nActiveGuards < 2 {
+	if c.NActiveGuards < 2 {
 		return onionRPC.GUARD_NODE_TYPE
-	} else if c.nActiveExits < 2 {
+	} else if c.NActiveExits < 2 {
 		return onionRPC.EXIT_NODE_TYPE
 	}
 
-	DESIRED_RATIO := 3 // Ratio of relay nodes to guard/exit nodes
+	if c.DESIRED_RATIO == 0 {
+		c.DESIRED_RATIO = 3
+	} // Ratio of relay nodes to guard/exit nodes
 
 	// 3. Finally, attempt to achieve the desired ratio of relays to guards/exits
-	if c.nActiveRelays/c.nActiveGuards > DESIRED_RATIO {
+	if c.NActiveRelays/c.NActiveGuards > c.DESIRED_RATIO {
 		return onionRPC.GUARD_NODE_TYPE
-	} else if c.nActiveRelays/c.nActiveExits > DESIRED_RATIO {
+	} else if c.NActiveRelays/c.NActiveExits > c.DESIRED_RATIO {
 		return onionRPC.EXIT_NODE_TYPE
 	}
 
@@ -264,22 +267,22 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		trace.RecordAction(NodeFail{})
 
 		var node *NodeConnection
-		for i := range c.guardNodes {
-			if c.guardNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.guardNodes[i]
-				c.nActiveGuards -= 1
+		for i := range c.GuardNodes {
+			if c.GuardNodes[i].FcheckAddr == failedServerAddr {
+				node = &c.GuardNodes[i]
+				c.NActiveGuards -= 1
 			}
 		}
-		for i := range c.exitNodes {
-			if c.exitNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.exitNodes[i]
-				c.nActiveExits -= 1
+		for i := range c.ExitNodes {
+			if c.ExitNodes[i].FcheckAddr == failedServerAddr {
+				node = &c.ExitNodes[i]
+				c.NActiveExits -= 1
 			}
 		}
-		for i := range c.relayNodes {
-			if c.relayNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.relayNodes[i]
-				c.nActiveRelays -= 1
+		for i := range c.RelayNodes {
+			if c.RelayNodes[i].FcheckAddr == failedServerAddr {
+				node = &c.RelayNodes[i]
+				c.NActiveRelays -= 1
 			}
 		}
 
@@ -318,7 +321,7 @@ func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
 			OldGuardAddr: msg.OldGuardAddr,
 			OldRelayAddr: msg.OldRelayAddr})
 
-		if c.nActiveExits > 0 && c.nActiveGuards > 0 && c.nActiveRelays > 0 {
+		if c.NActiveExits > 0 && c.NActiveGuards > 0 && c.NActiveRelays > 0 {
 			// Randomly select guard, exit, and relay nodes
 			guard, exit, relay := c.getNewCircuit(msg.OldGuardAddr, msg.OldRelayAddr, msg.OldExitAddr)
 			trace.RecordAction(OnionRes{
@@ -372,9 +375,9 @@ func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (g
 			idx++
 		}
 	}
-	guardNode := getActiveValue(c.guardNodes, c.nActiveGuards, oldGuardAddr)
-	exitNode := getActiveValue(c.exitNodes, c.nActiveExits, oldExitAddr)
-	relayNode := getActiveValue(c.relayNodes, c.nActiveRelays, oldRelayAddr)
+	guardNode := getActiveValue(c.GuardNodes, c.NActiveGuards, oldGuardAddr)
+	exitNode := getActiveValue(c.ExitNodes, c.NActiveExits, oldExitAddr)
+	relayNode := getActiveValue(c.RelayNodes, c.NActiveRelays, oldRelayAddr)
 
 	_func := func(c *NodeConnection) onionRPC.OnionNode {
 		return onionRPC.OnionNode{RpcAddress: c.ClientListenAddr}

@@ -186,6 +186,7 @@ func (fc *Fcheck) beginListen(addr string) {
 	fmt.Println("====> LISTENING AT ", conn.LocalAddr().String())
 
 	for doListen {
+		time.Sleep(time.Millisecond * 200)
 		len, caddr, err := conn.ReadFrom(recvBuf)
 		checkErr(err, "Error reading on UDP connection: %v\n", err)
 

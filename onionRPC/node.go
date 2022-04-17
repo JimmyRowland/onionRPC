@@ -75,6 +75,7 @@ type Node struct {
 	ExitNode    exitNode.Node
 	GuardNode   guardNode.Node
 	Tracer      *tracing.Tracer
+	trace       *tracing.Trace
 }
 
 func NewNode() *Node {
@@ -91,13 +92,16 @@ func (n *Node) Start(config NodeConfig) error {
 		ServerAddress:  config.TracingServerAddr,
 		TracerIdentity: config.TracingIdentity,
 	})
-	trace := n.Tracer.CreateTrace()
-	trace.RecordAction(NodeStart{NodeId: n.Id})
+	n.trace = n.Tracer.CreateTrace()
+	n.trace.RecordAction(NodeStart{NodeId: n.Id})
 
 	//Will only support single role
 	n.GuardNode.RoleConfig.ListenAddr = config.ClientListenAddr
 	n.RelayNode.RoleConfig.ListenAddr = config.ClientListenAddr
 	n.ExitNode.RoleConfig.ListenAddr = config.ClientListenAddr
+	n.GuardNode.Tracer = n.Tracer
+	n.RelayNode.Tracer = n.Tracer
+	n.ExitNode.Tracer = n.Tracer
 
 	// 1. Start fcheck
 	fc := fchecker.NewFcheck()
@@ -143,8 +147,7 @@ func (n *Node) connectToCoord() {
 	checkErr(err, "Failed to connect to coordinator")
 	defer conn.Close()
 
-	trace := n.Tracer.CreateTrace()
-	trace.RecordAction(NodeJoining{n.Id})
+	n.trace.RecordAction(NodeJoining{n.Id})
 
 	// Send join request
 	msg := OnionNodeJoinRequest{
@@ -153,7 +156,7 @@ func (n *Node) connectToCoord() {
 		ClientListenAddr: n.NodeConfig.ClientListenAddr,
 		ServerListenAddr: n.NodeConfig.ServerListenAddr,
 		NodeId:           n.Id,
-		Token:            trace.GenerateToken(),
+		Token:            n.trace.GenerateToken(),
 	}
 
 	conn.Write(encode(msg))
@@ -170,7 +173,7 @@ func (n *Node) connectToCoord() {
 	decoder.Decode(res)
 
 	n.Tracer.ReceiveToken(res.Token)
-	trace.RecordAction(NodeJoined{NodeId: n.Id, Role: res.Role})
+	n.trace.RecordAction(NodeJoined{NodeId: n.Id, Role: res.Role})
 	// Adopt assigned role
 	n.NodeType = res.Role
 }

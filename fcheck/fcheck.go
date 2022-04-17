@@ -161,7 +161,7 @@ func (fc *Fcheck) beginHeartbeat(arg StartStruct) {
 			// Set rtt to a *maximum* of 20ms, to avoid egregious overhead
 			// when latency is low
 			rttNs := int64(rtt)
-			minRttNs := 20000000 // 20 milliseconds
+			minRttNs := 200000000 // 200 milliseconds
 			rtt = time.Duration(math.Max(float64(rttNs), float64(minRttNs))) * time.Nanosecond
 			break
 		}

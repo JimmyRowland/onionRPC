@@ -56,6 +56,16 @@ func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*Public
 	}, nil
 }
 
+type Request struct {
+	Token tracing.TracingToken
+	Args  interface{}
+}
+
+type Response struct {
+	Token tracing.TracingToken
+	Res   interface{}
+}
+
 func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEncrypted, error) {
 	trace := node.Tracer.ReceiveToken(in.Token)
 	cipher, ok := node.Role.SessionKeys[in.SessionId]
@@ -76,12 +86,19 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	serverClient := rpc.NewClientWithCodec(jsonrpc.NewClientCodec(serverConnection))
 
 	time.Sleep(time.Millisecond * 50)
-	err = serverClient.Call(exitLayer.ServiceMethod, exitLayer.Args, &exitLayer.Res)
+	req := Request{
+		Token: trace.GenerateToken(),
+		Args:  exitLayer.Args,
+	}
+	res := Response{
+		Res: &exitLayer.Res,
+	}
+	err = serverClient.Call(exitLayer.ServiceMethod, req, &res)
 	time.Sleep(time.Millisecond * 50)
-
 	if err != nil {
 		return nil, err
 	}
+	trace = node.Tracer.ReceiveToken(res.Token)
 	trace.RecordAction(ServerPayloadRecvd{Payload: exitLayer.Res})
 	return &ResEncrypted{
 		Encrypted: role.Encrypt(&exitLayer.Res, cipher),

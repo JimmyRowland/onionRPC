@@ -37,6 +37,19 @@ type ReqGuardLayer struct {
 	Encrypted       []byte
 }
 
+//Tracing
+
+type PublicKeyRecvd struct {
+	PublicKey *ecdsa.PublicKey
+}
+
+type PublicKeySent struct {
+	PublicKey ecdsa.PublicKey
+}
+type PayloadRecvd struct {
+	Encrypted []byte
+}
+
 func InitRole() Role {
 	return Role{
 		SessionKeys: make(map[string]cipher.Block),

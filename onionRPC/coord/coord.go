@@ -22,9 +22,11 @@ type CoordStart struct {
 }
 
 type NodeFail struct {
+	NodeId uuid.UUID
+	Type   string
 }
 
-type NodeFailHandledRecvd struct {
+type NodeFailHandled struct {
 }
 
 type OnionReqRecvd struct {
@@ -75,6 +77,7 @@ type Coord struct {
 	NActiveRelays int
 	DESIRED_RATIO int
 	tracer        *tracing.Tracer
+	trace         *tracing.Trace
 }
 
 func NewCoord() *Coord {
@@ -88,8 +91,8 @@ func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lo
 
 	c.tracer = ctrace
 
-	trace := c.tracer.CreateTrace()
-	trace.RecordAction(CoordStart{})
+	c.trace = c.tracer.CreateTrace()
+	c.trace.RecordAction(CoordStart{})
 
 	// 1. Begin fcheck
 	fcStruct := fchecker.StartStruct{
@@ -174,6 +177,7 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 			ServerListenAddr: msg.ServerListenAddr,
 			ClientListenAddr: msg.ClientListenAddr,
 			IsActive:         true,
+			Type:             nodeType,
 		}
 		didReplace := false
 		var nodeArr *[]NodeConnection
@@ -259,12 +263,8 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 		fmt.Println("Onion coordinator detected node failure")
 		c.mu.Lock()
 
-		trace := c.tracer.CreateTrace()
-
 		failedServerAddr := fail.UDPIpPort
 		c.fc.StopMonitoring(failedServerAddr)
-
-		trace.RecordAction(NodeFail{})
 
 		var node *NodeConnection
 		for i := range c.GuardNodes {
@@ -288,8 +288,9 @@ func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
 
 		node.IsActive = false
 
-		fmt.Println("Node failure was processed by the coordinator")
-		trace.RecordAction(NodeFailHandledRecvd{})
+		c.trace.RecordAction(NodeFail{NodeId: node.NodeId, Type: node.Type})
+
+		c.trace.RecordAction(NodeFailHandled{})
 
 		c.mu.Unlock()
 	}

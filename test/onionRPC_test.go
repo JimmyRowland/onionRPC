@@ -93,6 +93,7 @@ func startClientWithId(clientId string) *onionRPC.Client {
 	var config onionRPC.ClientConfig
 	util.ReadJSONConfig("../config/client_config.json", &config)
 	config.ClientID = clientId
+	config.TracingIdentity = clientId
 	client := onionRPC.Client{ClientConfig: config}
 	client.Start(client.ClientConfig)
 	return &client
@@ -122,6 +123,22 @@ func TestOnionChainWithoutFailure(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 1, result.Result)
 }
+
+func TestOnionFailureCoordHandling(t *testing.T) {
+	startTracer()
+	startCoord()
+	guard1 := startNode(0)
+	exit1 := startNode(1)
+	relay1 := startNode(2)
+	guard1.Close()
+	exit1.Close()
+	relay1.Close()
+	startNode(3)
+	startNode(4)
+	startNode(5)
+	time.Sleep(time.Second * 2)
+}
+
 func TestOnionChainWithFailedGuard(t *testing.T) {
 	startTracer()
 	startCoord()
@@ -138,6 +155,8 @@ func TestOnionChainWithFailedGuard(t *testing.T) {
 	assert.Equal(t, 2, result.Result)
 	guard1.Close()
 	startNode(3)
+	startNode(4)
+	startNode(5)
 	err = client.RpcCall(mockServer.Config.ServerAddr, "Server.Multiply", Operands{A: result.Result, B: 4}, &result)
 	assert.Nil(t, err)
 	assert.Equal(t, 8, result.Result)
@@ -260,7 +279,7 @@ func TestOnionChainWithAsyncFailed(t *testing.T) {
 		client := startClientWithId(clientId)
 		operands := Operands{A: 1, B: 1}
 		result := Result{}
-		for i := 0; i < 20; i++ {
+		for i := 0; i < 10; i++ {
 			err := client.RpcCall(mockServer.Config.ServerAddr, "Server.Add", operands, &result)
 			assert.Nil(t, err)
 			assert.Equal(t, 2, result.Result)

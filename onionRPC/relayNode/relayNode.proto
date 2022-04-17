@@ -4,13 +4,16 @@ package relayNode;
 
 message PublicKey {
   bytes publicKey = 1;
+  bytes token = 2;
 }
 message ReqEncrypted{
   bytes encrypted = 1;
   string sessionId = 2;
+  bytes token = 3;
 }
 message ResEncrypted{
   bytes encrypted = 1;
+  bytes token = 2;
 }
 
 service RelayNodeService {

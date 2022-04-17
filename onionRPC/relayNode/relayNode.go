@@ -9,9 +9,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/DistributedClocks/tracing"
 	"net"
-	"time"
 	"sync"
+	"time"
 
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/exitNode"
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC/role"
@@ -25,9 +26,11 @@ type Node struct {
 	Role       role.Role
 	UnimplementedRelayNodeServiceServer
 	listener net.Listener
+	Tracer   *tracing.Tracer
 }
 
 func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*PublicKey, error) {
+	trace := node.Tracer.ReceiveToken(in.Token)
 	privb, pubb := role.GetPrivateAndPublicKey()
 	pubbBytes, _ := x509.MarshalPKIXPublicKey(&pubb)
 	pubaParsed, _ := x509.ParsePKIXPublicKey(in.PublicKey)
@@ -35,18 +38,22 @@ func (node *Node) ExchangePublicKey(ctx context.Context, in *PublicKey) (*Public
 	defer node.mu.Unlock()
 	switch puba := pubaParsed.(type) {
 	case *ecdsa.PublicKey:
+		trace.RecordAction(role.PublicKeyRecvd{PublicKey: puba})
 		shared, _ := puba.Curve.ScalarMult(puba.X, puba.Y, privb.D.Bytes())
 		sharedSecret := sha256.Sum256(shared.Bytes())
 		node.Role.SessionKeys[hex.EncodeToString(pubbBytes)], _ = aes.NewCipher(sharedSecret[:])
 	default:
 		return &PublicKey{}, errors.New("Unknown public key type")
 	}
+	trace.RecordAction(role.PublicKeySent{PublicKey: pubb})
 	return &PublicKey{
 		PublicKey: pubbBytes,
+		Token:     trace.GenerateToken(),
 	}, nil
 }
 
 func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEncrypted, error) {
+	trace := node.Tracer.ReceiveToken(in.Token)
 	cipher, ok := node.Role.SessionKeys[in.SessionId]
 	if !ok {
 		return nil, errors.New("Unknown client")
@@ -56,7 +63,7 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	if err != nil {
 		return nil, err
 	}
-
+	trace.RecordAction(relayLayer)
 	conn, err := grpc.Dial(relayLayer.ExitListenAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
@@ -67,13 +74,17 @@ func (node *Node) ForwardRequest(ctx context.Context, in *ReqEncrypted) (*ResEnc
 	response, err := nodeClient.ForwardRequest(context.Background(), &exitNode.ReqEncrypted{
 		Encrypted: relayLayer.Encrypted,
 		SessionId: relayLayer.ExitSessionId,
+		Token:     trace.GenerateToken(),
 	})
 	time.Sleep(time.Millisecond * 50)
 	if err != nil {
 		return nil, err
 	}
+	trace = node.Tracer.ReceiveToken(response.Token)
+	trace.RecordAction(role.PayloadRecvd{Encrypted: response.Encrypted})
 	return &ResEncrypted{
 		Encrypted: role.Encrypt(response, cipher),
+		Token:     trace.GenerateToken(),
 	}, nil
 }
 

@@ -56,13 +56,20 @@ type OnionResRecvd struct {
 }
 
 type SharedSecretReq struct {
-	ClientId string
-	NodeType string
+	ClientId  string
+	NodeType  string
+	PublicKey ecdsa.PublicKey
 }
 
 type SharedSecretResRecvd struct {
 	ClientId string
 	NodeType string
+}
+
+type RPCTimeOut struct {
+}
+type RPCError struct {
+	Error error
 }
 
 // ***
@@ -86,6 +93,7 @@ type Client struct {
 	Exit         OnionNode
 	Relay        OnionNode
 	Tracer       *tracing.Tracer
+	trace        *tracing.Trace
 }
 
 func (client *Client) Start(config ClientConfig) {
@@ -94,8 +102,8 @@ func (client *Client) Start(config ClientConfig) {
 		ServerAddress:  config.TracingServerAddr,
 		TracerIdentity: config.TracingIdentity,
 	})
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(ClientStart{ClientId: client.ClientConfig.ClientID})
+	client.trace = client.Tracer.CreateTrace()
+	client.trace.RecordAction(ClientStart{ClientId: client.ClientConfig.ClientID})
 	client.setUpOnionChain(0)
 
 }
@@ -119,8 +127,7 @@ type OnionCircuitResponse struct {
 }
 
 func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(OnionReq{
+	client.trace.RecordAction(OnionReq{
 		ClientId:     client.ClientConfig.ClientID,
 		OldExitAddr:  oldExitAddr,
 		OldRelayAddr: oldRelayAddr,
@@ -137,7 +144,7 @@ func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 		OldExitAddr:  oldExitAddr,
 		OldRelayAddr: oldRelayAddr,
 		OldGuardAddr: oldGuardAddr,
-		Token:        trace.GenerateToken(),
+		Token:        client.trace.GenerateToken(),
 	}
 	conn.Write(encode(req))
 
@@ -158,8 +165,8 @@ func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 	client.Exit = msg.Exit
 	client.Guard = msg.Guard
 	client.Relay = msg.Relay
-	client.Tracer.ReceiveToken(msg.Token)
-	trace.RecordAction(OnionResRecvd{
+	client.trace = client.Tracer.ReceiveToken(msg.Token)
+	client.trace.RecordAction(OnionResRecvd{
 		ClientId:  client.ClientConfig.ClientID,
 		ExitAddr:  msg.Exit.RpcAddress,
 		RelayAddr: msg.Relay.RpcAddress,
@@ -167,11 +174,10 @@ func (client *Client) getNodes(oldExitAddr, oldRelayAddr, oldGuardAddr string) {
 }
 
 func (client *Client) getGuardSharedSecret() error {
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Guard"})
-
 	priva, puba := role.GetPrivateAndPublicKey()
 	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
+	client.trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Guard", PublicKey: puba})
 
 	conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -179,21 +185,19 @@ func (client *Client) getGuardSharedSecret() error {
 	}
 	defer conn.Close()
 	nodeClient := guardNode.NewGuardNodeServiceClient(conn)
-	response, err := nodeClient.ExchangePublicKey(context.Background(), &guardNode.PublicKey{PublicKey: pubaBytes})
+	response, err := nodeClient.ExchangePublicKey(context.Background(), &guardNode.PublicKey{PublicKey: pubaBytes, Token: client.trace.GenerateToken()})
 	if err != nil {
 		return err
 	}
-
+	client.trace = client.Tracer.ReceiveToken(response.Token)
 	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
-	fmt.Println(string(response.PublicKey))
-	fmt.Println(pubbParsed)
 	switch pubb := pubbParsed.(type) {
 	case *ecdsa.PublicKey:
+		client.trace.RecordAction(role.PublicKeyRecvd{PublicKey: pubb})
 		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
 		sharedSecret := sha256.Sum256(shared.Bytes())
 		client.Guard.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
 		client.Guard.sessionId = hex.EncodeToString(response.PublicKey)
-		trace.RecordAction(SharedSecretResRecvd{ClientId: client.ClientConfig.ClientID, NodeType: "Guard"})
 	default:
 		fmt.Println(string(response.PublicKey))
 		return errors.New("Unknown public key type")
@@ -202,11 +206,10 @@ func (client *Client) getGuardSharedSecret() error {
 }
 
 func (client *Client) getRelaySharedSecret() error {
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Relay"})
-
 	priva, puba := role.GetPrivateAndPublicKey()
 	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
+	client.trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Relay", PublicKey: puba})
 
 	conn, err := grpc.Dial(client.Relay.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -214,21 +217,19 @@ func (client *Client) getRelaySharedSecret() error {
 	}
 	defer conn.Close()
 	nodeClient := relayNode.NewRelayNodeServiceClient(conn)
-	response, err := nodeClient.ExchangePublicKey(context.Background(), &relayNode.PublicKey{PublicKey: pubaBytes})
+	response, err := nodeClient.ExchangePublicKey(context.Background(), &relayNode.PublicKey{PublicKey: pubaBytes, Token: client.trace.GenerateToken()})
 	if err != nil {
 		return err
 	}
-
+	client.trace = client.Tracer.ReceiveToken(response.Token)
 	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
-	fmt.Println(string(response.PublicKey))
-	fmt.Println(pubbParsed)
 	switch pubb := pubbParsed.(type) {
 	case *ecdsa.PublicKey:
+		client.trace.RecordAction(role.PublicKeyRecvd{PublicKey: pubb})
 		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
 		sharedSecret := sha256.Sum256(shared.Bytes())
 		client.Relay.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
 		client.Relay.sessionId = hex.EncodeToString(response.PublicKey)
-		trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Relay"})
 	default:
 		fmt.Println(string(response.PublicKey))
 		return errors.New("Unknown public key type")
@@ -237,11 +238,10 @@ func (client *Client) getRelaySharedSecret() error {
 }
 
 func (client *Client) getExitSharedSecret() error {
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Exit"})
-
 	priva, puba := role.GetPrivateAndPublicKey()
 	pubaBytes, _ := x509.MarshalPKIXPublicKey(&puba)
+
+	client.trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Exit", PublicKey: puba})
 
 	conn, err := grpc.Dial(client.Exit.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -249,21 +249,21 @@ func (client *Client) getExitSharedSecret() error {
 	}
 	defer conn.Close()
 	nodeClient := exitNode.NewExitNodeServiceClient(conn)
-	response, err := nodeClient.ExchangePublicKey(context.Background(), &exitNode.PublicKey{PublicKey: pubaBytes})
+	response, err := nodeClient.ExchangePublicKey(context.Background(), &exitNode.PublicKey{PublicKey: pubaBytes, Token: client.trace.GenerateToken()})
 	if err != nil {
 		return err
 	}
-
+	client.trace = client.Tracer.ReceiveToken(response.Token)
 	pubbParsed, _ := x509.ParsePKIXPublicKey(response.PublicKey)
 	fmt.Println(string(response.PublicKey))
 	fmt.Println(pubbParsed)
 	switch pubb := pubbParsed.(type) {
 	case *ecdsa.PublicKey:
+		client.trace.RecordAction(role.PublicKeyRecvd{PublicKey: pubb})
 		shared, _ := pubb.Curve.ScalarMult(pubb.X, pubb.Y, priva.D.Bytes())
 		sharedSecret := sha256.Sum256(shared.Bytes())
 		client.Exit.sharedSecret, _ = aes.NewCipher(sharedSecret[:])
 		client.Exit.sessionId = hex.EncodeToString(response.PublicKey)
-		trace.RecordAction(SharedSecretReq{ClientId: client.ClientConfig.ClientID, NodeType: "Exit"})
 	default:
 		fmt.Println(string(response.PublicKey))
 		return errors.New("Unknown public key type")
@@ -276,9 +276,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 	timeout := 1000
 	done := make(chan bool)
 
-	trace := client.Tracer.CreateTrace()
-	trace.RecordAction(RpcCall{ClientId: client.ClientConfig.ClientID, ServiceMethod: serviceMethod})
-
+	client.trace.RecordAction(RpcCall{ClientId: client.ClientConfig.ClientID, ServiceMethod: serviceMethod})
 	for {
 		exitLayer := role.ReqExitLayer{
 			Args:          args,
@@ -300,6 +298,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 		plainTextLayer := guardNode.ReqEncrypted{
 			SessionId: client.Guard.sessionId,
 			Encrypted: role.Encrypt(&guardLayer, client.Guard.sharedSecret),
+			Token:     client.trace.GenerateToken(),
 		}
 		conn, err := grpc.Dial(client.Guard.RpcAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
@@ -310,8 +309,10 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 			nodeClient := guardNode.NewGuardNodeServiceClient(conn)
 			response, err := nodeClient.ForwardRequest(context.Background(), &plainTextLayer)
 			if err != nil {
+				client.trace.RecordAction(RPCError{err})
 				return err
 			}
+			client.trace = client.Tracer.ReceiveToken(response.Token)
 			resGuardLayer := guardNode.ResEncrypted{}
 			err = role.Decrypt(response.Encrypted, client.Guard.sharedSecret, &resGuardLayer)
 			if err != nil {
@@ -332,7 +333,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 		select {
 		case isDone := <-done:
 			if isDone == true {
-				trace.RecordAction(RpcResRecvd{
+				client.trace.RecordAction(RpcResRecvd{
 					ClientId:      client.ClientConfig.ClientID,
 					ServiceMethod: serviceMethod,
 					Result:        res})
@@ -341,6 +342,7 @@ func (client *Client) RpcCall(serverAddr string, serviceMethod string, args inte
 		case <-time.After(time.Duration(timeout) * time.Millisecond):
 			timeouts++
 			if timeouts >= 3 {
+				client.trace.RecordAction(RPCTimeOut{})
 				client.setUpOnionChain(0)
 			}
 			continue

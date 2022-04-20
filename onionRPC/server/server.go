@@ -123,7 +123,6 @@ func (server *Server) Start(config Config, ctrace *tracing.Tracer) error {
 	server.tracer = ctrace
 	server.trace = ctrace.CreateTrace()
 	server.trace.RecordAction(ServerStart{config})
-
 	l, err := net.Listen("tcp", config.ServerAddr)
 	if err != nil {
 		log.Fatal("listen error:", err)

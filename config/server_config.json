@@ -1,7 +1,7 @@
 {
   "ServerID": 1,
   "ServerAddr": ":4322",
-  "TracingServerAddr": ":6666",
+  "TracingServerAddr": ":56666",
   "Secret": "",
   "TracingIdentity": "server1"
 }

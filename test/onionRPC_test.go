@@ -57,10 +57,10 @@ func addIdToString(id uint8, string string) string {
 func startNode(id uint8) *onionRPC.Node {
 	nodeConfig := onionRPC.NodeConfig{
 		NodeId:            addIdToString(id, "node"),
-		CoordAddr:         "127.0.0.1:1235",
-		FcheckAddr:        addIdToString(id, "127.0.0.1:500"),
-		ClientListenAddr:  addIdToString(id, "127.0.0.1:501"),
-		TracingServerAddr: "127.0.0.1:6666",
+		CoordAddr:         ":1235",
+		FcheckAddr:        addIdToString(id, ":500"),
+		ClientListenAddr:  addIdToString(id, ":501"),
+		TracingServerAddr: ":56666",
 		TracingIdentity:   addIdToString(id, "node"),
 	}
 	node := onionRPC.NewNode()
@@ -183,7 +183,7 @@ func TestOnionChainWithFailedRelay(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, result.Result)
 	relay1.Close()
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 1)
 	startNode(3)
 	startNode(4)
 	startNode(5)

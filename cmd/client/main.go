@@ -4,6 +4,8 @@ import (
 	"cs.ubc.ca/cpsc416/onionRPC/onionRPC"
 	"cs.ubc.ca/cpsc416/onionRPC/util"
 	"fmt"
+	"os"
+	"time"
 )
 
 type RandomNumber struct {
@@ -24,8 +26,13 @@ type Result struct {
 }
 
 func main() {
+	if len(os.Args) != 2 {
+		fmt.Println("Usage: client [config path]")
+		return
+	}
+	configPath := os.Args[1]
 	var config onionRPC.ClientConfig
-	util.ReadJSONConfig("config/client_config.json", &config)
+	util.ReadJSONConfig(configPath, &config)
 	client := onionRPC.Client{ClientConfig: config}
 
 	client.Start(client.ClientConfig)
@@ -33,25 +40,29 @@ func main() {
 	result := Result{}
 
 	for {
-		err := client.RpcCall(":4322", "Server.Add", operands, &result)
+		err := client.RpcCall(config.ServerAddr, "Server.Add", operands, &result)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		err = client.RpcCall(":4322", "Server.Multiply", Operands{A: result.Result, B: 4}, &result)
+		time.Sleep(time.Millisecond * 200)
+		err = client.RpcCall(config.ServerAddr, "Server.Multiply", Operands{A: result.Result, B: 4}, &result)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		err = client.RpcCall(":4322", "Server.Subtract", Operands{A: result.Result, B: 5}, &result)
+		time.Sleep(time.Millisecond * 200)
+		err = client.RpcCall(config.ServerAddr, "Server.Subtract", Operands{A: result.Result, B: 5}, &result)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		err = client.RpcCall(":4322", "Server.Divide", Operands{A: result.Result, B: 3}, &result)
+		time.Sleep(time.Millisecond * 200)
+		err = client.RpcCall(config.ServerAddr, "Server.Divide", Operands{A: result.Result, B: 3}, &result)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
+		time.Sleep(time.Millisecond * 200)
 	}
 }

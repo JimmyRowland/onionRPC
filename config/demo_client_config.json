@@ -1,0 +1,7 @@
+{
+  "ClientID": "client1",
+  "CoordAddr": "valdes.students.cs.ubc.ca:12349",
+  "ServerAddr": "valdes.students.cs.ubc.ca:43229",
+  "TracingServerAddr": "valdes.students.cs.ubc.ca:56666",
+  "TracingIdentity": "client1"
+}

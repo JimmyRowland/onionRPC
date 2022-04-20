@@ -1,7 +1,7 @@
 {
   "ClientID": "client1",
-  "CoordAddr": "127.0.0.1:1234",
+  "CoordAddr": ":1234",
   "ServerAddr": ":4322",
-  "TracingServerAddr": ":6666",
+  "TracingServerAddr": ":56666",
   "TracingIdentity": "client1"
 }

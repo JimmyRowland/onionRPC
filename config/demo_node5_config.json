@@ -1,9 +1,9 @@
 {
-  "NodeId": "node1",
+  "NodeId": "node5",
   "CoordAddr": "valdes.students.cs.ubc.ca:12359",
   "FcheckAddr": ":40405",
   "ClientListenAddr": ":40505",
   "ServerListenAddr": ":4060",
   "TracingServerAddr": "valdes.students.cs.ubc.ca:56666",
-  "TracingIdentity": "node1"
+  "TracingIdentity": "node5"
 }

@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -94,25 +95,13 @@ func (c *Coord) Start(clientAPIListenAddr string, serverAPIListenAddr string, lo
 	c.trace = c.tracer.CreateTrace()
 	c.trace.RecordAction(CoordStart{})
 
-	// 1. Begin fcheck
-	fcStruct := fchecker.StartStruct{
-		HBeatLocalIPHBeatLocalPort: newLocalAddr(),
-	}
-	fc := fchecker.NewFcheck()
-	c.fc = &fc
-	notifyCh, err := c.fc.Start(fcStruct)
-	checkErr(err, "Failed to start fcheck")
-
-	// 2. Listen for node connections
+	// 1. Listen for node connections
 	go c.handleNodeConnections(serverAPIListenAddr, lostMsgsThresh)
 
-	// 3. Handle node failures
-	go c.handleNodeFailures(notifyCh)
-
-	// 4. Listen for client connections
+	// 2. Listen for client connections
 	go c.handleClientConnections(clientAPIListenAddr)
 
-	// 5. Wait for Stop command
+	// 3. Wait for Stop command
 	c.stopChan = make(chan bool)
 	go c.awaitStop(c.stopChan)
 
@@ -159,12 +148,14 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 		msg := new(onionRPC.OnionNodeJoinRequest)
 		decoder := gob.NewDecoder(tmpbuff)
 		decoder.Decode(msg)
-
 		trace := c.tracer.ReceiveToken(msg.Token)
 		trace.RecordAction(NodeJoiningRecvd{msg.NodeId})
 
+		ip := strings.Split(conn.RemoteAddr().String(), ":")[0]
+		msg.FcheckAddr = ip + ":" + strings.Split(msg.FcheckAddr, ":")[1]
+		msg.ClientListenAddr = ip + ":" + strings.Split(msg.ClientListenAddr, ":")[1]
 		// Begin fcheck monitoring of node
-		c.startMonitoringServer(msg.FcheckAddr, lostMsgsThresh)
+		go c.startMonitoringServer(msg.FcheckAddr, lostMsgsThresh)
 
 		c.mu.Lock()
 
@@ -218,6 +209,7 @@ func (c *Coord) handleNodeConnections(serverAPIListenAddr string, lostMsgsThresh
 			fmt.Println("Re-established connection with a failed onion node")
 		}
 		conn.Close()
+
 	}
 
 }
@@ -254,46 +246,43 @@ func (c *Coord) chooseNodeType() string {
 	return onionRPC.RELAY_NODE_TYPE
 }
 
-func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected) {
+func (c *Coord) handleNodeFailures(notifyCh <-chan fchecker.FailureDetected, fcheck *fchecker.Fcheck) {
+
+	fail := <-notifyCh
+	fcheck.Stop()
+	fmt.Println("Onion coordinator detected node failure")
 	c.mu.Lock()
-	isCoordActive := c.isActive
-	c.mu.Unlock()
-	for isCoordActive {
-		fail := <-notifyCh
-		fmt.Println("Onion coordinator detected node failure")
-		c.mu.Lock()
 
-		failedServerAddr := fail.UDPIpPort
-		c.fc.StopMonitoring(failedServerAddr)
+	failedServerAddr := fail.UDPIpPort
 
-		var node *NodeConnection
-		for i := range c.GuardNodes {
-			if c.GuardNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.GuardNodes[i]
-				c.NActiveGuards -= 1
-			}
+	var node *NodeConnection
+	for i := range c.GuardNodes {
+		if c.GuardNodes[i].FcheckAddr == failedServerAddr {
+			node = &c.GuardNodes[i]
+			c.NActiveGuards -= 1
 		}
-		for i := range c.ExitNodes {
-			if c.ExitNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.ExitNodes[i]
-				c.NActiveExits -= 1
-			}
-		}
-		for i := range c.RelayNodes {
-			if c.RelayNodes[i].FcheckAddr == failedServerAddr {
-				node = &c.RelayNodes[i]
-				c.NActiveRelays -= 1
-			}
-		}
-
-		node.IsActive = false
-
-		c.trace.RecordAction(NodeFail{NodeId: node.NodeId, Type: node.Type})
-
-		c.trace.RecordAction(NodeFailHandled{})
-
-		c.mu.Unlock()
 	}
+	for i := range c.ExitNodes {
+		if c.ExitNodes[i].FcheckAddr == failedServerAddr {
+			node = &c.ExitNodes[i]
+			c.NActiveExits -= 1
+		}
+	}
+	for i := range c.RelayNodes {
+		if c.RelayNodes[i].FcheckAddr == failedServerAddr {
+			node = &c.RelayNodes[i]
+			c.NActiveRelays -= 1
+		}
+	}
+
+	node.IsActive = false
+
+	c.trace.RecordAction(NodeFail{NodeId: node.NodeId, Type: node.Type})
+
+	c.trace.RecordAction(NodeFailHandled{})
+
+	c.mu.Unlock()
+
 }
 
 func (c *Coord) handleClientConnections(clientAPIListenAddr string) {
@@ -387,9 +376,12 @@ func (c *Coord) getNewCircuit(oldGuardAddr, oldRelayAddr, oldExitAddr string) (g
 }
 
 func (c *Coord) startMonitoringServer(raddr string, lostMsgsThresh uint8) {
-	thresh := int(lostMsgsThresh)
-	err := c.fc.BeginMonitoring(newLocalAddr(), raddr, thresh)
+	freeUDPAddrPort := newLocalAddr()
+	var fcheck fchecker.Fcheck
+	fcheckerError, err := fcheck.Start(fchecker.StartStruct{"", rand.Uint64(), freeUDPAddrPort, raddr, lostMsgsThresh})
 	checkErr(err, "Failed to begin fcheck heartbeat for new server\n")
+
+	go c.handleNodeFailures(fcheckerError, &fcheck)
 }
 
 func newLocalAddr() string {

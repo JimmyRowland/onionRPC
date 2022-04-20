@@ -79,6 +79,7 @@ type ClientConfig struct {
 	TracingServerAddr string
 	TracingIdentity   string
 	CoordAddr         string
+	ServerAddr        string
 }
 
 type OnionNode struct {

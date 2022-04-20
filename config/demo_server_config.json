@@ -1,0 +1,7 @@
+{
+  "ServerID": 1,
+  "ServerAddr": "valdes.students.cs.ubc.ca:43229",
+  "TracingServerAddr": "valdes.students.cs.ubc.ca:56666",
+  "Secret": "",
+  "TracingIdentity": "server1"
+}

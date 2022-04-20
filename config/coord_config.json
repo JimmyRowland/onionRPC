@@ -1,8 +1,8 @@
 {
-  "ClientAPIListenAddr": "127.0.0.1:1234",
-  "ServerAPIListenAddr": "127.0.0.1:1235",
+  "ClientAPIListenAddr": ":1234",
+  "ServerAPIListenAddr": ":1235",
   "LostMsgsThresh": 3,
-  "TracingServerAddr": "127.0.0.1:6666",
+  "TracingServerAddr": ":56666",
   "Secret": "",
   "TracingIdentity": "coord"
 }

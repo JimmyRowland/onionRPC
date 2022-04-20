@@ -1,0 +1,8 @@
+{
+  "ClientAPIListenAddr": "valdes.students.cs.ubc.ca:12349",
+  "ServerAPIListenAddr": "valdes.students.cs.ubc.ca:12359",
+  "LostMsgsThresh": 3,
+  "TracingServerAddr": "valdes.students.cs.ubc.ca:56666",
+  "Secret": "",
+  "TracingIdentity": "coord"
+}

@@ -3,7 +3,9 @@ package onionRPC
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	"fmt"
+	"math/rand"
 	"net"
 	"os"
 	"sync"
@@ -96,6 +98,7 @@ func (n *Node) Start(config NodeConfig) error {
 	n.trace.RecordAction(NodeStart{NodeId: n.Id})
 
 	//Will only support single role
+	n.fcAddr = config.FcheckAddr
 	n.GuardNode.RoleConfig.ListenAddr = config.ClientListenAddr
 	n.RelayNode.RoleConfig.ListenAddr = config.ClientListenAddr
 	n.ExitNode.RoleConfig.ListenAddr = config.ClientListenAddr
@@ -104,13 +107,7 @@ func (n *Node) Start(config NodeConfig) error {
 	n.ExitNode.Tracer = n.Tracer
 
 	// 1. Start fcheck
-	fc := fchecker.NewFcheck()
-	n.fc = &fc
-	n.fcAddr = n.NodeConfig.FcheckAddr
-	fcConfig := fchecker.StartStruct{
-		AckLocalIPAckLocalPort: n.fcAddr,
-	}
-	n.fc.Start(fcConfig)
+	go n.startHeartbeatListener()
 
 	n.mu.Unlock()
 
@@ -139,6 +136,15 @@ func (n *Node) Close() {
 	n.ExitNode.Close()
 	n.GuardNode.Close()
 	n.RelayNode.Close()
+}
+
+func (n *Node) startHeartbeatListener() {
+	n.fcAddr = n.NodeConfig.FcheckAddr
+	n.fc = &fchecker.Fcheck{}
+	errChan, _ := n.fc.Start(fchecker.StartStruct{n.fcAddr, rand.Uint64(), "", "", 0})
+	err := <-errChan
+	n.fc.Stop()
+	checkErr(errors.New(err.UDPIpPort+" heartbeat err"), err.UDPIpPort+" heartbeat err")
 }
 
 func (n *Node) connectToCoord() {
